@@ -1,6 +1,15 @@
+ // Cambia esto por la ruta real de tu archivo
 import 'package:flutter/material.dart';
-
-void main() => runApp(QuizApp());
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:web/web.dart' as web;
 
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
@@ -4608,9 +4617,35 @@ final List<Map<String, Object>> poolreglamentacion = [
 // =============================================================
 // LÓGICA DE LA APLICACIÓN
 // =============================================================
+void main() async {
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    // Inicialización con tiempo límite para evitar bloqueos eternos
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform).timeout(const Duration(seconds: 10)); 
+    
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    String userName = prefs.getString('userName') ?? "";
+
+    runApp(QuizApp(
+      startWidget: isLoggedIn  
+        ? WelcomeScreen(nombre: userName)
+        : const MiPantallaLogin()
+    ));
+  } catch (e) {
+    // Si falla Firebase o el sistema, arranca una versión segura de la app
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text("Error al iniciar: Verifica tu conexión")),
+      ),
+    ));
+  }
+}
 
 class QuizApp extends StatelessWidget {
-  const QuizApp({super.key});
+  final Widget startWidget;
+  const QuizApp({super.key, required this.startWidget});
 
   @override
   Widget build(BuildContext context) {
@@ -4620,30 +4655,48 @@ class QuizApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: const SplashScreen(),
+      home: startWidget, // [cite: 17]
     );
   }
 }
 
-// --- SPLASH SCREEN ---
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+// 2. PANTALLA DE BIENVENIDA (ESTILO WINDOWS)
+class WelcomeScreen extends StatefulWidget {
+  final String nombre;
+  const WelcomeScreen({super.key, required this.nombre});
 
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  double _opacity = 0.0;
+class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _opacity = 1.0);
-    });
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3), // [cite: 3]
+    );
 
-    Future.delayed(const Duration(seconds: 4), () {
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn), // [cite: 4]
+    );
+    _controller.addStatusListener((status) {
+    if (status == AnimationStatus.completed) {
+      // Solo navega cuando la animación termina realmente
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainMenu()),
+      );
+    }
+  });
+    _controller.forward();
+
+    // Transición automática al menú tras la animación [cite: 5]
+    Future.delayed(const Duration(seconds: 5), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -4654,23 +4707,48 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         width: double.infinity,
-        color: Colors.white,
-        child: AnimatedOpacity(
-          duration: const Duration(seconds: 2),
-          opacity: _opacity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color.fromARGB(255, 58, 64, 99), Color.fromARGB(255, 38, 73, 114)],
+          ), // [cite: 7]
+        ),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/EOV_LOGO.png', width: 300),
-              const SizedBox(height: 30),
-              const Text("PREPARACIÓN DGAC",
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.indigo),
+              Text(
+                "¡Bienvenido!",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 1.2,
+                ), 
               ),
-              const Text("Tu preparación comienza aquí", style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 20),
+              const Text(
+                "Espera un momento, por favor",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 18,
+                  fontStyle: FontStyle.italic,
+                ), // [cite: 11]
+              ),
+              const SizedBox(height: 40),
+              const CircularProgressIndicator(color: Colors.white24), // [cite: 12]
             ],
           ),
         ),
@@ -4679,16 +4757,288 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- MENÚ PRINCIPAL ---
+// 3. PANTALLA DE LOGIN
+class MiPantallaLogin extends StatefulWidget {
+  const MiPantallaLogin({super.key});
+
+  @override
+  _MiPantallaLoginState createState() => _MiPantallaLoginState();
+}
+
+class _MiPantallaLoginState extends State<MiPantallaLogin> {
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _codigoController = TextEditingController();
+
+  // Color azul del fondo de la imagen
+  final Color azulFondo = const Color.fromARGB(255, 34, 70, 110); 
+  bool _cargando = false;
+  bool _recordarme = false;
+  Future<void> ingresarApp() async {
+    if (_cargando) return;
+    String nombre = _nombreController.text.trim();
+    String codigo = _codigoController.text.trim();
+
+    if (nombre.isEmpty || codigo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes poner nombre y código")),
+      );
+      return;
+    }
+    setState(() => _cargando = true);
+    try {
+      var docSnap = await FirebaseFirestore.instance
+      .collection("Códigos_válidos")
+      .doc(codigo)
+      .get()
+      .timeout(const Duration(seconds: 10));      
+      if (docSnap.exists) {
+        Map<String, dynamic> data = docSnap.data() as Map<String, dynamic>;
+        bool enUso = data['en_uso'] ?? false; 
+        String? usuarioAsignado = data['quien entro']; 
+        if (enUso && usuarioAsignado != nombre) {
+          throw ("Este código ya está vinculado a otro usuario.");
+        }
+        var usuarioQuery = await FirebaseFirestore.instance
+            .collection("Códigos_válidos")
+            .where("quien entro", isEqualTo: nombre)
+            .get();
+        if (usuarioQuery.docs.isNotEmpty) {
+          // Si encontramos que el usuario ya tiene un código, validamos que sea el mismo
+          if (usuarioQuery.docs.first.id != codigo) {
+            throw ("Ya tienes un código asignado. Debes usar el código original.");
+          }
+        }
+
+        await docSnap.reference.update({
+          'en_uso': true,
+          'quien entro': nombre,
+          'fecha_uso': FieldValue.serverTimestamp(), 
+        });
+
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        if (_recordarme) {
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setString('userName', nombre);
+        } else {
+          
+          await prefs.setBool('isLoggedIn', false);
+          await prefs.remove('userName');
+        }
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WelcomeScreen(nombre: nombre)),
+          );
+        }
+      } else {
+        throw("El código no existe.");        
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: azulFondo,
+    body: Stack(
+      clipBehavior: Clip.none, // Usamos Stack para que el logo no "empuje" al login
+      children: [
+        // 1. EL LOGO (Posicionado arriba)
+        Positioned(
+          top: -40, // Distancia desde la parte de arriba
+          left: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Image.asset(
+              'assets/ESCUELA_LOGO.png',
+              height: 380, // <--- Aquí tienes tu logo GRANDE
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+
+        // 2. EL CUADRO DE LOGIN (Centrado total)
+        Center(
+          child: SingleChildScrollView( // Para que no de error de espacio en pantallas chicas
+            child: Container(
+              width: 450,
+              margin: const EdgeInsets.only(top: 150, left: 30, right: 30), // Margen top para que no choque si el logo es gigante
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F2F2),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Iniciar sesión",
+                    style: GoogleFonts.inter(
+                      fontSize: 32,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  _buildTextField(
+                    controller: _nombreController,
+                    hint: "Tu correo institucional",
+                    icon: Icons.mail_outline,
+                  ),
+                  const SizedBox(height: 20),
+
+                  _buildTextField(
+                    controller: _codigoController,
+                    hint: "Código",
+                    icon: Icons.lock_outline,
+                    isPassword: true,
+                  ),
+                  const SizedBox(height: 15),
+
+                  Row(
+                    children: [
+                      SizedBox(
+                        height: 24, width: 24,
+                        child: Checkbox(
+                          value: _recordarme,
+                          onChanged: (val) {
+                            setState(() => _recordarme = val ?? false);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text("Recuérdame", style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: ingresarApp,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0091D5),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: const Text("LOGIN", style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+  // Widget auxiliar para los campos de texto con iconos
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool isPassword = false,
+  }) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF004481), size: 28),
+          const SizedBox(width: 15),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              obscureText: isPassword,
+              decoration: InputDecoration(
+                hintText: hint,
+                border: InputBorder.none,
+                hintStyle: const TextStyle(color: Colors.grey),
+              ),
+
+            )
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class PantallaInstructivo extends StatelessWidget {
+  const PantallaInstructivo({super.key});
+
+  Future<void> _abrirPdf(BuildContext context) async {
+    try {
+      if (kIsWeb) {
+        // 🌐 Solución Web moderna (sin plugins):
+        // window.open abre el archivo directamente desde la carpeta web/
+        web.window.open('Instructivo.pdf', '_blank');
+      } else {
+        // 📱 Solución móvil:
+        final Uri url = Uri.parse('asset:///assets/Instructivo.pdf');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          throw 'No se pudo abrir el PDF';
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Instructivo de Examen")),
+      body: Center(
+        child: ElevatedButton.icon(
+          onPressed: () => _abrirPdf(context),
+          icon: const Icon(Icons.picture_as_pdf),
+          label: const Text("Abrir PDF"),
+        ),
+      ),
+    );
+  }
+}
+// 4. MENÚ PRINCIPAL (Aquí empieza tu código original)
 class MainMenu extends StatelessWidget {
   final List<Map<String, dynamic>> materias = [
-  {'nombre': 'AERODINÁMICA', 'Imagen': "assets/AERODINAMICA_SIN_FONDO.png", 'pool': poolAerodinamica, 'limite': 16},
-  {'nombre': 'PERFORMANCE Y MOTORES', 'Imagen': "assets/PERFORMANCE_Y_MOTORES_SIN_FONDO.png", 'pool': poolperformanceymotores, 'limite': 16},
-  {'nombre': 'OPERACIONES DE VUELO', 'Imagen': "assets/OPERACIONES_DE_VUELO_SIN_FONDO.png", 'pool': pooloperacionesdevuelo, 'limite': 16},
-  {'nombre': 'PESO Y BALANCE', 'Imagen': "assets/PESO_Y_BALANCE_SIN_FONDO.png", 'pool': poolpesoybalance, 'limite': 16},
-  {'nombre': 'METEOROLOGÍA', 'Imagen': "assets/METEO_SIN_FONDO.png", 'pool': poolmeteorologia, 'limite': 25},
-  {'nombre': 'REGLAMENTACIÓN', 'Imagen': "assets/REGLAMENTACION_SIN_FONDO.png", 'pool': poolreglamentacion, 'limite': 25},
-];
+    {'nombre': 'AERODINÁMICA', 'Imagen': "assets/AERODINAMICA_SIN_FONDO.png", 'pool': poolAerodinamica, 'limite': 16}, 
+    {'nombre': 'PERFORMANCE Y MOTORES', 'Imagen': "assets/PERFORMANCE_Y_MOTORES_SIN_FONDO.png", 'pool': poolperformanceymotores, 'limite': 16},
+    {'nombre': 'OPERACIONES DE VUELO', 'Imagen': "assets/OPERACIONES_DE_VUELO_SIN_FONDO.png", 'pool': pooloperacionesdevuelo, 'limite': 16},
+    {'nombre': 'PESO Y BALANCE', 'Imagen': "assets/PESO_Y_BALANCE_SIN_FONDO.png", 'pool': poolpesoybalance, 'limite': 16},
+    {'nombre': 'METEOROLOGÍA', 'Imagen': "assets/METEO_SIN_FONDO.png", 'pool': poolmeteorologia, 'limite': 25},
+    {'nombre': 'REGLAMENTACIÓN', 'Imagen': "assets/REGLAMENTACION_SIN_FONDO.png", 'pool': poolreglamentacion, 'limite': 25},
+  ];
 
   MainMenu({super.key});
 
@@ -4698,48 +5048,122 @@ class MainMenu extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Panel de Estudio", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+                  (route) => false,
+                );
+              }
+            }
+          )
+        ]
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: materias.length,
-          itemBuilder: (context, index) {
-            final materia = materias[index];
-            return InkWell(
-              onTap: () => _mostrarSeleccionModo(context, materia),
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Transform.scale(
-                        scale: 1.35,
-                        child: Image.asset(
-                          materia['Imagen'].toString(),
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // 🟥 NUEVO: Cuadro "Ver Instructivo" agregado arriba de las materias
+              Card(
+                elevation: 3,
+                color: Colors.indigo.shade50,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.picture_as_pdf, color: Colors.red.shade700, size: 28),
+                        const SizedBox(width: 15),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Ver Instructivo",
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                "Encargado de operaciones de vuelo EOV",
+                                style: TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(materia['nombre'].toString(), 
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            );
-          },
+              
+              // Espaciado entre el instructivo y la grilla de materias
+              const SizedBox(height: 20), 
+
+              // Tu GridView original envuelto en un Expanded para que convivan perfectamente
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 15,
+                    mainAxisSpacing: 15,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: materias.length,
+                  itemBuilder: (context, index) {
+                    final materia = materias[index];
+                    return InkWell(
+                      onTap: () => _mostrarSeleccionModo(context, materia),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Transform.scale(
+                                scale: 1.35,
+                                child: Image.asset(
+                                  materia['Imagen'].toString(),
+                                  cacheWidth: 400,
+                                  filterQuality: FilterQuality.high,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                materia['nombre'].toString(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4779,24 +5203,26 @@ class MainMenu extends StatelessWidget {
   }
 
   void _irAlQuiz(BuildContext context, Map<String, dynamic> materia, bool modoTest) {
-    // 1. Creamos la lista base
-    List<Map<String, dynamic>> poolAEnviar = List<Map<String, dynamic>>.from(materia['pool']);
-    
-    // Siempre barajamos para que el orden sea distinto
-    poolAEnviar.shuffle(); 
+    final dynamic poolRaw = materia['pool'];
+    List<Map<String, dynamic>> poolAEnviar = [];
+
+    if (poolRaw is List) {
+      poolAEnviar = poolRaw.map((item) {
+        return Map<String, dynamic>.from(item as Map);
+      }).toList();
+    }
 
     if (modoTest) {
-      // 2. Si es test, aplicamos el recorte de 16 o 25 según la materia
+      poolAEnviar.shuffle();
       int limite = materia['limite'] ?? 16;
-      poolAEnviar = poolAEnviar.take(limite).toList(); 
+      poolAEnviar = poolAEnviar.take(limite).toList();
     }
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => QuizPage(
-          // CLAVE: Usamos 'poolAEnviar', que ya está recortada si era test
-          preguntasRecibidas: poolAEnviar, 
+          preguntasRecibidas: poolAEnviar,
           tituloMateria: materia['nombre'].toString(),
           isTestMode: modoTest,
         ),
@@ -4805,17 +5231,17 @@ class MainMenu extends StatelessWidget {
   }
 }
 
-// --- PÁGINA DE QUIZ ---
+// 5. PÁGINA DEL QUIZ Y LÓGICA DE PREGUNTAS
 class QuizPage extends StatefulWidget {
   final List<Map<String, dynamic>> preguntasRecibidas;
   final String tituloMateria;
   final bool isTestMode;
 
   const QuizPage({
-    super.key, 
-    required this.preguntasRecibidas, 
-    required this.tituloMateria, 
-    required this.isTestMode
+    super.key,
+    required this.preguntasRecibidas,
+    required this.tituloMateria,
+    required this.isTestMode,
   });
 
   @override
@@ -4828,12 +5254,48 @@ class _QuizPageState extends State<QuizPage> {
   bool respondido = false;
   int? indiceSeleccionado;
   late List<Map<String, dynamic>> preguntas;
-  List<int?> respuestasUsuario = [];
+  
+  List<int?> respuestasUsuario = []; 
+  late Stopwatch _cronometro;
+  Duration _tiempoFinal = Duration.zero;
+
+  // Controladores para el scroll horizontal superior y el cambio de pantallas
+  late PageController _pageController;
+  late ScrollController _menuScrollController;
+  bool _isQuizFinished = false;
 
   @override
   void initState() {
     super.initState();
-    preguntas = List<Map<String, dynamic>>.from(widget.preguntasRecibidas)..shuffle();
+    preguntas = List<Map<String, dynamic>>.from(widget.preguntasRecibidas);
+    _cronometro = Stopwatch()..start();
+    _pageController = PageController(initialPage: 0);
+    _menuScrollController = ScrollController();
+    
+    // Inicializamos con nulls para soportar saltos y re-navegación libre en ambos modos
+    respuestasUsuario = List<int?>.filled(preguntas.length, null);
+    
+    if (widget.isTestMode) {
+      preguntas.shuffle();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _menuScrollController.dispose();
+    super.dispose();
+  }
+
+  String _formatearTextoPregunta(String textoOriginal, int indice) {
+    String limpio = textoOriginal.replaceFirst(RegExp(r'^\d+[\.\s\-]*'), '').trim();
+    return "Pregunta ${indice + 1}: $limpio";
+  }
+
+  Color _getColorPuntaje(double porcentaje) {
+    if (porcentaje >= 0.75) return Colors.green;
+    if (porcentaje >= 0.65) return Colors.orange;
+    return Colors.red;
   }
 
   void validarRespuesta(int indice, int puntos) {
@@ -4841,49 +5303,182 @@ class _QuizPageState extends State<QuizPage> {
 
     setState(() {
       indiceSeleccionado = indice;
-      if (widget.isTestMode) {
-        respuestasUsuario.add(indice);
-        if (preguntaActual < preguntas.length - 1) {
-          preguntaActual++;
-          indiceSeleccionado = null;
-        } else {
-          preguntaActual++; // Terminar
-        }
-      } else {
+      respuestasUsuario[preguntaActual] = indice;
+      
+      if (!widget.isTestMode) {
         respondido = true;
-        puntaje += puntos;
+        // Re-calculamos puntaje dinámico en modo práctica
+        puntaje = 0;
+        for (int i = 0; i < preguntas.length; i++) {
+          if (respuestasUsuario[i] != null) {
+            final resps = preguntas[i]['respuestas'] as List;
+            if (resps[respuestasUsuario[i]!]['puntos'] == 1) puntaje++;
+          }
+        }
       }
+    });
+  }
+
+  // Método unificado para saltar de pregunta fluidamente
+  void _saltarAPregunta(int index) {
+    if (index >= 0 && index < preguntas.length) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      preguntaActual = index;
+      if (widget.isTestMode) {
+        indiceSeleccionado = respuestasUsuario[preguntaActual];
+      } else {
+        // En modo práctica, verificamos si la página a la que vamos ya fue respondida
+        indiceSeleccionado = respuestasUsuario[preguntaActual];
+        respondido = indiceSeleccionado != null;
+      }
+    });
+    _animarMenuSuperior(index);
+  }
+
+  // Desplaza el menú numérico de arriba automáticamente para mantener visible la pregunta activa
+  void _animarMenuSuperior(int index) {
+    if (_menuScrollController.hasClients) {
+      double posicionDestino = (index * 55.0) - (MediaQuery.of(context).size.width / 2) + 27.5;
+      if (posicionDestino < 0) posicionDestino = 0;
+      _menuScrollController.animateTo(
+        posicionDestino,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.linear,
+      );
+    }
+  }
+
+  void _finalizarQuiz() {
+    setState(() {
+      _cronometro.stop();
+      _tiempoFinal = _cronometro.elapsed;
+      _isQuizFinished = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool terminado = preguntaActual >= preguntas.length;
-
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text(widget.isTestMode ? 'Test: ${widget.tituloMateria}' : 'Estudio: ${widget.tituloMateria}'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: terminado ? buildSolucionario() : buildQuiz(),
+      body: _isQuizFinished 
+          ? buildSolucionario() 
+          : Column(
+              children: [
+                _buildMenuDesplazableNumeros(), // Menú superior deslizable
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    itemCount: preguntas.length,
+                    itemBuilder: (context, index) => buildQuizPageContent(index),
+                  ),
+                ),
+              ],
+            ),
+      bottomNavigationBar: _isQuizFinished ? null : _buildBarraNavegacionAtractiva(),
     );
   }
 
-  Widget buildQuiz() {
-    final pregunta = preguntas[preguntaActual];
+  // NUEVO: Menú horizontal superior deslizable de números
+  Widget _buildMenuDesplazableNumeros() {
+    return Container(
+      height: 65,
+      color: Colors.transparent,
+      child: ListView.builder(
+        controller: _menuScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        itemCount: preguntas.length,
+        itemBuilder: (context, index) {
+          bool esActual = index == preguntaActual;
+          bool estaRespondida = respuestasUsuario[index] != null;
+
+          Color colorFondo = Colors.indigo.shade700.withOpacity(0.4);
+          Color colorTexto = Colors.white60;
+          BoxBorder? borde;
+
+          if (esActual) {
+            colorFondo = Colors.white;
+            colorTexto = Colors.indigo.shade900;
+          } else if (estaRespondida) {
+            colorFondo = widget.isTestMode ? Colors.orange.shade400 : Colors.green.shade400;
+            colorTexto = Colors.white;
+          }
+
+          return GestureDetector(
+            onTap: () => _saltarAPregunta(index),
+            child: Container(
+              width: 45,
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: colorFondo,
+                borderRadius: BorderRadius.circular(12),
+                border: borde,
+                boxShadow: esActual ? [BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2))] : null,
+              ),
+              child: Center(
+                child: Text(
+                  "${index + 1}",
+                  style: TextStyle(
+                    fontSize: 16, 
+                    fontWeight: esActual ? FontWeight.bold : FontWeight.w500, 
+                    color: colorTexto
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Renderiza el contenido específico de cada pregunta dentro del PageView
+  Widget buildQuizPageContent(int index) {
+    final pregunta = preguntas[index];
     final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
       child: Column(
         children: [
-          LinearProgressIndicator(value: (preguntaActual + 1) / preguntas.length),
-          const SizedBox(height: 30),
-          Text(pregunta['texto'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(height: 30),
-          ...List.generate(respuestas.length, (index) => buildBotonRespuesta(index, respuestas[index])),
-          if (respondido && !widget.isTestMode) buildExplicacion(pregunta['explicacion'] ?? ""),
+          LinearProgressIndicator(
+            value: (index + 1) / preguntas.length,
+            backgroundColor: Colors.grey.shade200,
+            color: Colors.orange,
+            minHeight: 6,
+          ),
+          const SizedBox(height: 25),
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                _formatearTextoPregunta(pregunta['texto'], index),
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          const SizedBox(height: 25),
+          ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes])),
+          if (respondido && !widget.isTestMode && index == preguntaActual) buildExplicacion(pregunta['explicacion'] ?? ""),
         ],
       ),
     );
@@ -4892,64 +5487,220 @@ class _QuizPageState extends State<QuizPage> {
   Widget buildBotonRespuesta(int index, Map<String, dynamic> res) {
     bool esCorrecta = res['puntos'] == 1;
     bool seleccionada = indiceSeleccionado == index;
-    Color colorBorde = Colors.grey.shade300;
+    Color colorBorde = Colors.grey.shade200;
     Color colorFondo = Colors.white;
+    Color colorTexto = Colors.black87;
 
     if (!widget.isTestMode && respondido) {
-      if (esCorrecta) { colorBorde = Colors.green; colorFondo = Colors.green.shade50; }
-      else if (seleccionada) { colorBorde = Colors.red; colorFondo = Colors.red.shade50; }
+      if (esCorrecta) {
+        colorBorde = Colors.green;
+        colorFondo = Colors.green.shade50;
+        colorTexto = Colors.green.shade900;
+      } else if (seleccionada) {
+        colorBorde = Colors.red;
+        colorFondo = Colors.red.shade50;
+        colorTexto = Colors.red.shade900;
+      }
     } else if (seleccionada) {
-      colorBorde = Colors.indigo; colorFondo = Colors.indigo.shade50;
+      colorBorde = Colors.indigo;
+      colorFondo = Colors.indigo.shade50;
+      colorTexto = Colors.indigo.shade900;
     }
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: colorBorde, width: 2)),
-      color: colorFondo,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: colorFondo,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorBorde, width: 2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))
+        ]
+      ),
       child: ListTile(
         onTap: () => validarRespuesta(index, res['puntos']),
-        title: Text(res['texto']),
-        leading: (!widget.isTestMode && respondido && esCorrecta) ? const Icon(Icons.check, color: Colors.green) : null,
+        title: Text(res['texto'], style: TextStyle(color: colorTexto, fontWeight: seleccionada ? FontWeight.w600 : FontWeight.normal)),
+        leading: (!widget.isTestMode && respondido && esCorrecta) 
+            ? const Icon(Icons.check_circle, color: Colors.green) 
+            : (seleccionada && !widget.isTestMode ? const Icon(Icons.cancel, color: Colors.red) : null),
       ),
     );
   }
 
   Widget buildExplicacion(String texto) {
-    return Column(children: [
-      Card(color: Colors.amber.shade50, margin: const EdgeInsets.symmetric(vertical: 20), child: Padding(padding: const EdgeInsets.all(15), child: Text(texto, style: const TextStyle(fontStyle: FontStyle.italic)))),
-      ElevatedButton(onPressed: () => setState(() { preguntaActual++; respondido = false; indiceSeleccionado = null; }), child: const Text("Siguiente"))
-    ]);
+    return Card(
+      color: Colors.amber.shade50,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.amber.shade200)),
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lightbulb, color: Colors.amber, size: 24),
+            const SizedBox(width: 10),
+            Expanded(child: Text(texto, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87, height: 1.3))),
+          ],
+        ),
+      ),
+    );
   }
 
+  // NUEVA INTERFAZ MODERNA Y ATRACTIVA DE NAVEGACIÓN
+  Widget _buildBarraNavegacionAtractiva() {
+  final esUltimaPregunta = preguntaActual == preguntas.length - 1;
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      boxShadow: [
+        BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -4))
+      ],
+    ),
+    child: SafeArea(
+      child: Row(
+        children: [
+          // Botón Atrás - Neumórfico / Redondeado
+          Material(
+            color: preguntaActual > 0 ? Colors.indigo.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: preguntaActual > 0 ? () => _saltarAPregunta(preguntaActual - 1) : null,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Icon(
+                  Icons.arrow_back_ios_new, 
+                  size: 20, 
+                  color: preguntaActual > 0 ? Colors.indigo : Colors.grey.shade400
+                ),
+              ),
+            ),
+          ),
+          
+          // Spacer empuja los botones hacia los extremos de forma fluida y segura sin importar el tamaño de pantalla
+          const Spacer(), 
+
+          // Botón Principal: Siguiente o Finalizar Examen
+          ElevatedButton.icon(
+            onPressed: (!widget.isTestMode && !respondido) 
+                ? null 
+                : (esUltimaPregunta ? _finalizarQuiz : () => _saltarAPregunta(preguntaActual + 1)), 
+            style: ElevatedButton.styleFrom(
+              backgroundColor: esUltimaPregunta ? Colors.red.shade600 : Colors.indigo,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            icon: Icon(
+              esUltimaPregunta ? Icons.check_circle_outline : Icons.arrow_forward_ios, 
+              size: 16
+            ),
+            label: Text(esUltimaPregunta ? "Terminar" : "Sig."),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
   Widget buildSolucionario() {
-    // Calcular puntaje final si es modo test
-    if (widget.isTestMode && puntaje == 0) {
+    int puntajeFinal = 0;
+    if (widget.isTestMode) {
       for (int i = 0; i < preguntas.length; i++) {
-        if (respuestasUsuario[i] != null && (preguntas[i]['respuestas'] as List)[respuestasUsuario[i]!]['puntos'] == 1) puntaje++;
+        if (i < respuestasUsuario.length && respuestasUsuario[i] != null) {
+          final resps = preguntas[i]['respuestas'] as List;
+          if (resps[respuestasUsuario[i]!]['puntos'] == 1) puntajeFinal++;
+        }
       }
+    } else {
+      puntajeFinal = puntaje;
     }
 
+    double porcentaje = preguntas.isNotEmpty ? puntajeFinal / preguntas.length : 0.0;
+    Color colorDinamico = _getColorPuntaje(porcentaje);
+    String minutos = _tiempoFinal.inMinutes.toString().padLeft(2, '0');
+    String segundos = (_tiempoFinal.inSeconds % 60).toString().padLeft(2, '0');
+
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          const Icon(Icons.analytics, size: 60, color: Colors.indigo),
-          Text("Resultado: $puntaje / ${preguntas.length}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const Divider(),
+          const SizedBox(height: 10),
+          Icon(Icons.analytics, size: 80, color: colorDinamico),
+          Text(
+            "${(porcentaje * 100).toStringAsFixed(0)}%",
+            style: TextStyle(fontSize: 45, fontWeight: FontWeight.bold, color: colorDinamico),
+          ),
+          Text(
+            "Resultado: $puntajeFinal / ${preguntas.length}",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20)
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.timer_outlined, size: 20, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Text("Tiempo total: $minutos:$segundos", 
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+              ],
+            ),
+          ),
+          const Divider(height: 40),
           ListView.builder(
-            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: preguntas.length,
             itemBuilder: (context, i) {
               final resp = preguntas[i]['respuestas'] as List;
-              int? userIdx = widget.isTestMode ? respuestasUsuario[i] : null;
+              int? userIdx = i < respuestasUsuario.length ? respuestasUsuario[i] : null;
               bool correcto = userIdx != null && resp[userIdx]['puntos'] == 1;
+
               return ExpansionTile(
-                title: Text(preguntas[i]['texto'], style: const TextStyle(fontSize: 14)),
-                leading: Icon(widget.isTestMode ? (correcto ? Icons.check_circle : Icons.cancel) : Icons.check_circle, color: widget.isTestMode ? (correcto ? Colors.green : Colors.red) : Colors.green),
-                children: [Padding(padding: const EdgeInsets.all(15), child: Text("Correcta: ${resp.firstWhere((r) => r['puntos'] == 1)['texto']}\n\nExplicación: ${preguntas[i]['explicacion']}"))],
+                leading: Icon(
+                  userIdx == null 
+                      ? Icons.help_outline 
+                      : (correcto ? Icons.check_circle : Icons.cancel),
+                  color: userIdx == null 
+                      ? Colors.orange 
+                      : (correcto ? Colors.green : Colors.red),
+                ),
+                title: Text(_formatearTextoPregunta(preguntas[i]['texto'], i), 
+                  style: const TextStyle(fontSize: 14)),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: Text(
+                      "Tu respuesta: ${userIdx != null ? resp[userIdx]['texto'] : 'Sin responder (Saltada)'}\n\nRespuesta Correcta: ${resp.firstWhere((r) => r['puntos'] == 1)['texto']}\n\nExplicación: ${preguntas[i]['explicacion'] ?? 'No disponible.'}",
+                    ),
+                  )
+                ],
               );
             },
           ),
-          ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text("Volver al Inicio"))
+          const SizedBox(height: 30),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(200, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Volver al Inicio"),
+          ),
         ],
       ),
     );
