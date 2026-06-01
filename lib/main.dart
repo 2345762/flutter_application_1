@@ -4655,7 +4655,7 @@ class QuizApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: startWidget, // [cite: 17]
+      home: startWidget, // 
     );
   }
 }
@@ -4678,11 +4678,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3), // [cite: 3]
+      duration: const Duration(seconds: 3), 
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn), // [cite: 4]
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn), // 
     );
     _controller.addStatusListener((status) {
     if (status == AnimationStatus.completed) {
@@ -4695,7 +4695,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   });
     _controller.forward();
 
-    // Transición automática al menú tras la animación [cite: 5]
+    // Transición automática al menú tras la animación 
     Future.delayed(const Duration(seconds: 5), () {
       if (mounted) {
         Navigator.pushReplacement(
@@ -4722,7 +4722,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [Color.fromARGB(255, 58, 64, 99), Color.fromARGB(255, 38, 73, 114)],
-          ), // [cite: 7]
+          ), 
         ),
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -4745,10 +4745,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                   color: Colors.white70,
                   fontSize: 18,
                   fontStyle: FontStyle.italic,
-                ), // [cite: 11]
+                ),
               ),
               const SizedBox(height: 40),
-              const CircularProgressIndicator(color: Colors.white24), // [cite: 12]
+              const CircularProgressIndicator(color: Colors.white24),
             ],
           ),
         ),
