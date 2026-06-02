@@ -4661,6 +4661,24 @@ class QuizApp extends StatelessWidget {
 }
 
 // 2. PANTALLA DE BIENVENIDA (ESTILO WINDOWS)
+
+String formatearNombreDesdeCorreo(String correo) {
+  // 1. Obtener la parte antes del primer punto o la arroba
+  // Esto divide el correo en el primer punto que encuentre
+  String partePrincipal = correo.split('.').first;
+  
+  // 2. Por si el correo no tiene punto (ej: usuario@gmail.com), 
+  // nos aseguramos de tomar lo que esté antes de la arroba
+  if (!correo.contains('.')) {
+    partePrincipal = correo.split('@').first;
+  }
+
+  // 3. Poner la primera letra en mayúscula y el resto en minúscula
+  if (partePrincipal.isEmpty) return "Usuario";
+  
+  return partePrincipal[0].toUpperCase() + partePrincipal.substring(1).toLowerCase();
+}
+
 class WelcomeScreen extends StatefulWidget {
   final String nombre;
   const WelcomeScreen({super.key, required this.nombre});
@@ -4730,7 +4748,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                "¡Bienvenido!",
+                "¡Bienvenido!, ${formatearNombreDesdeCorreo(widget.nombre)}",
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
