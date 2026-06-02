@@ -5412,15 +5412,24 @@ class _QuizPageState extends State<QuizPage> {
           bool esActual = index == preguntaActual;
           bool estaRespondida = respuestasUsuario[index] != null;
 
+          bool esCorrecta = false;
+          if (estaRespondida) {
+            final resps = preguntas[index]['respuestas'] as List;
+            esCorrecta = resps[respuestasUsuario[index]!]['puntos'] == 1;
+          }
+
           Color colorFondo = Colors.indigo.shade700.withOpacity(0.4);
           Color colorTexto = Colors.white60;
-          BoxBorder? borde;
 
           if (esActual) {
             colorFondo = Colors.white;
             colorTexto = Colors.indigo.shade900;
           } else if (estaRespondida) {
-            colorFondo = widget.isTestMode ? Colors.orange.shade400 : Colors.green.shade400;
+            if (widget.isTestMode) {
+              colorFondo = Colors.orange.shade400;
+            } else {
+              colorFondo = esCorrecta ? Colors.green.shade400 : Colors.red.shade400;
+            }
             colorTexto = Colors.white;
           }
 
@@ -5432,7 +5441,7 @@ class _QuizPageState extends State<QuizPage> {
               decoration: BoxDecoration(
                 color: colorFondo,
                 borderRadius: BorderRadius.circular(12),
-                border: borde,
+                border: Border.all(color: Colors.white, width: 1),
                 boxShadow: esActual ? [BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2))] : null,
               ),
               child: Center(
