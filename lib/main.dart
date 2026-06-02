@@ -5277,6 +5277,7 @@ class _QuizPageState extends State<QuizPage> {
     
     if (widget.isTestMode) {
       preguntas.shuffle();
+      
     }
   }
 
@@ -5289,7 +5290,10 @@ class _QuizPageState extends State<QuizPage> {
 
   String _formatearTextoPregunta(String textoOriginal, int indice) {
     String limpio = textoOriginal.replaceFirst(RegExp(r'^\d+[\.\s\-]*'), '').trim();
-    return "Pregunta ${indice + 1}: $limpio";
+    if (widget.isTestMode){
+      return  limpio;  
+    }
+    return  "Pregunta ${indice + 1}: $limpio";
   }
 
   Color _getColorPuntaje(double porcentaje) {
