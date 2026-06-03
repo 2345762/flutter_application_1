@@ -1,4 +1,4 @@
- // Cambia esto por la ruta real de tu archivo
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,7 +15,7 @@ import 'package:web/web.dart' as web;
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
 // =============================================================
 
-// 1. Lista de Aerodinámica (La que ya tenías)
+
 final List<Map<String, Object>> poolAerodinamica = [
    {
     'texto': '1.- Si el ángulo de ataque constante y la velocidad sube al doble, la sustentación será:',
@@ -707,7 +707,7 @@ final List<Map<String, Object>> poolAerodinamica = [
      ]         
   },
 ];
-// 2. Lista de Física (LISTA PARA RELLENAR)
+
 final List<Map<String, Object>> poolperformanceymotores = [
  {
         'texto': '1.- Marque cuáles son, en la debida secuencia, las fases termodinámicas de un motor turborreactor:',
