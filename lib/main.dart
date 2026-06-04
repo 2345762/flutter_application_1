@@ -802,6 +802,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '11.- Indique cuál es el área que corresponde al compresor de baja de un motor turborreactor de doble flujo.',
         'explicacion': 'Ruta visual: 1. Abre las Figuras 126 y 127 del Material de Apoyo, donde aparece el esquema numerado del motor de doble flujo. 2. Sigue el flujo de aire desde la entrada hacia el primer conjunto compresor de baja presión. 3. Identifica el número marcado sobre esa zona. El área correspondiente al compresor de baja es 1.',
+        "imagenes": ["assets/figura126yfigura127.jpg"],
         'respuestas': [
             {'texto': 'A.- 1', 'puntos': 1},
             {'texto': 'B.- 2', 'puntos': 0},
@@ -811,6 +812,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '12.- Indique cuál es el área que corresponde al compresor de alta de un motor turborreactor de doble flujo.',
         'explicacion': 'Ruta visual: 1. En las Figuras 126 y 127 ubica el esquema del motor de doble flujo. 2. Avanza desde el compresor de baja hacia el núcleo del motor, donde el aire ya comprimido entra al compresor de alta. 3. Lee el número asignado a esa sección. El área del compresor de alta es 3.',
+        "imagenes": ["assets/figura126yfigura127.jpg"],
         'respuestas': [
             {'texto': 'A.- 1', 'puntos': 0},
             {'texto': 'B.- 3', 'puntos': 1},
@@ -820,6 +822,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '13.- Indique cuál es el área que corresponde a la turbina de alta de un motor turborreactor de doble flujo.',
         'explicacion': 'Ruta visual: 1. En las Figuras 126 y 127 localiza la cámara de combustión y luego observa el primer conjunto de turbina inmediatamente posterior. 2. Esa turbina extrae energía para mover el compresor de alta. 3. El número marcado para la turbina de alta es 4.',
+        "imagenes": ["assets/figura126yfigura127.jpg"],
         'respuestas': [
             {'texto': 'A.- 3', 'puntos': 0},
             {'texto': 'B.- 4', 'puntos': 1},
@@ -955,6 +958,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '28.- ¿Cuáles son las velocidades V1, VR y V2 para las condiciones de operación G-3? (Ref. Fig. 81, 82 y 83).',
         'explicacion': 'Ruta visual: 1. En la Figura 81 identifica las condiciones de operación G-3. 2. Con esos datos entra a la Figura 82 para obtener las velocidades de despegue. 3. Verifica la configuración en la Figura 83. La lectura final entrega V1 134 kt, VR 139 kt y V2 145 kt.',
+        "imagenes": ["assets/figura81.jpg", "assets/figura82.jpg", "assets/figura83.jpg"],
         'respuestas': [
             {'texto': 'A.- 134, 134 y 145 Nudos.', 'puntos': 0},
             {'texto': 'B.- 134, 139 y 145 Nudos.', 'puntos': 1},
@@ -964,6 +968,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '29.- ¿Cuáles son las velocidades V1 y V2 para las condiciones de operación G-4? (Ref. Fig. 81, 82 y 83).',
         'explicacion': 'Ruta visual: 1. Busca la condición G-4 en la Figura 81. 2. Lleva el peso, configuración y datos de operación a la tabla o gráfico de velocidades de la Figura 82. 3. Comprueba el ajuste asociado en la Figura 83. El resultado correcto es V1 132 kt y V2 146 kt.',
+        "imagenes": ["assets/figura81.jpg", "assets/figura82.jpg", "assets/figura83.jpg"],
         'respuestas': [
             {'texto': 'A.- 133 y 145 Nudos.', 'puntos': 0},
             {'texto': 'B.- 127 y 141 Nudos.', 'puntos': 0},
@@ -973,6 +978,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '30.- ¿Cuál es la velocidad segura de despegue para las condiciones de operación R-1? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. En la Figura 53 ubica la condición de operación R-1. 2. Con los datos de peso, pista y configuración, entra a la Figura 54 de velocidades. 3. Usa la Figura 55 para confirmar el ajuste asociado. La velocidad segura de despegue V2 es 133 kt.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 128 Nudos.', 'puntos': 0},
             {'texto': 'B.- 121 Nudos.', 'puntos': 0},
@@ -982,6 +988,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '31.- ¿Cuál es la velocidad de rotación para las condiciones de operación R-2? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Ubica la condición R-2 en la Figura 53. 2. Cruza los datos de esa condición en la Figura 54, donde se obtienen las velocidades de despegue. 3. Selecciona la columna o curva de VR. La velocidad de rotación resultante es 147 kt.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 146 Nudos.', 'puntos': 0},
             {'texto': 'B.- 147 Nudos.', 'puntos': 1},
@@ -991,6 +998,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '32.- ¿Cuál es V1, VR y V2 para las condiciones de operación R-3? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Busca R-3 en la Figura 53 y toma los datos de operación. 2. En la Figura 54 lee las velocidades V1, VR y V2 para esa condición. 3. Verifica consistencia con la Figura 55. El resultado es V1 136 kt, VR 138 kt y V2 143 kt.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 143, 143 y 147 Nudos.', 'puntos': 0},
             {'texto': 'B.- 138, 138 y 142 Nudos.', 'puntos': 0},
@@ -1000,6 +1008,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '33.- ¿Cuál es la velocidad de rotación y V2 para las condiciones de operación R-5? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Identifica la condición R-5 en la Figura 53. 2. Entra a la Figura 54 y lee las velocidades de rotación y seguridad de despegue para esa condición. 3. Confirma con la Figura 55. El resultado es VR 134 kt y V2 141 kt.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 138 y 143 Nudos.', 'puntos': 0},
             {'texto': 'B.- 136 y 138 Nudos.', 'puntos': 0},
@@ -1009,6 +1018,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '34.- ¿Cuáles son V1 y VR para las condiciones de operación A-1? (Ref. Fig. 45, 46 y 47).',
         'explicacion': 'Ruta visual: 1. En la Figura 45 ubica la condición A-1. 2. Lleva los datos de operación a la Figura 46, donde se leen las velocidades de despegue. 3. Usa la Figura 47 para confirmar la configuración. La lectura correcta es V1 122.3 kt y VR 124.1 kt.',
+        "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
         'respuestas': [
             {'texto': 'A.- V1 123.1 Nudos; VR 125.2 Nudos.', 'puntos': 0},
             {'texto': 'B.- V1 120.5 Nudos; VR 123.5 Nudos.', 'puntos': 0},
@@ -1018,6 +1028,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '35.- ¿Cuáles son V1 y VR para las condiciones de operación A-2? (Ref. Fig. 45, 46 y 47).',
         'explicacion': 'Ruta visual: 1. Ubica la condición A-2 en la Figura 45. 2. Con sus datos de peso, configuración y pista, entra a la Figura 46. 3. Lee las columnas o curvas de V1 y VR y verifica en la Figura 47. El resultado es V1 127.4 kt y VR 133.6 kt.',
+        "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
         'respuestas': [
             {'texto': 'A.- V1 129.7 Nudos; VR 134.0 Nudos.', 'puntos': 0},
             {'texto': 'B.- V1 127.2 Nudos; VR 133.2 Nudos.', 'puntos': 0},
@@ -1027,6 +1038,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '36.- ¿Cuál es V1 y VR para las condiciones de operación A-5? (Ref. Fig. 45, 46 y 47).',
         'explicacion': 'Ruta visual: 1. Busca A-5 en la Figura 45. 2. Traslada sus condiciones a la Figura 46 de velocidades de despegue. 3. Lee V1 y VR en la misma condición. Ambas coinciden en 106.4 kt.',
+        "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
         'respuestas': [
             {'texto': 'A.- V1 110.4 Nudos; VR 110.9 Nudos.', 'puntos': 0},
             {'texto': 'B.- V1 109.6 Nudos; VR 112.7 Nudos.', 'puntos': 0},
@@ -1036,6 +1048,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '37.- ¿Cuál es el máximo EPR de despegue para las condiciones de operación G-1? (Ref. Fig. 81, 82 y 83).',
         'explicacion': 'Ruta visual: 1. En la Figura 81 identifica la condición G-1. 2. Usa la Figura 82 para confirmar el régimen de despegue aplicable. 3. En la Figura 83 lee el EPR máximo por motor. El resultado es motores 1 y 3 con EPR 2.22 y motor 2 con EPR 2.16.',
+        "imagenes": ["assets/figura81.jpg", "assets/figura82.jpg", "assets/figura83.jpg"],
         'respuestas': [
             {'texto': 'A.- Motores 1 y 3, 2.22; motor 2, 2.16.', 'puntos': 1},
             {'texto': 'B.- Motores 1 y 3, 2.22; motor 2, 2.21.', 'puntos': 0},
@@ -1045,6 +1058,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '38.- ¿Cuál es el máximo EPR de despegue para las condiciones de operación G-3? (Ref. Fig. 81, 82 y 83).',
         'explicacion': 'Ruta visual: 1. Localiza G-3 en la Figura 81. 2. Con sus datos entra a la Figura 83, tabla o gráfico de EPR de despegue. 3. Lee el valor diferenciado por motores. El resultado es motores 1 y 3 EPR 2.14 y motor 2 EPR 2.10.',
+        "imagenes": ["assets/figura81.jpg", "assets/figura82.jpg", "assets/figura83.jpg"],
         'respuestas': [
             {'texto': 'A.- Motores 1 y 3, 2.08; motor 2, 2.05.', 'puntos': 0},
             {'texto': 'B.- Motores 1 y 3, 2.14; motor 2, 2.10.', 'puntos': 1},
@@ -1054,6 +1068,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '39.- ¿Cuál es el máximo EPR de despegue para las condiciones de operación G-4? (Ref. Fig. 81, 82 y 83).',
         'explicacion': 'Ruta visual: 1. Ubica G-4 en la Figura 81. 2. Lleva esa condición a la Figura 83 para leer el EPR máximo de despegue. 3. Confirma la configuración con la Figura 82. El resultado es EPR 2.24 para motores 1, 2 y 3.',
+        "imagenes": ["assets/figura81.jpg", "assets/figura82.jpg", "assets/figura83.jpg"],
         'respuestas': [
             {'texto': 'A.- Motores 1 y 3, 2.23; motor 2, 2.21.', 'puntos': 0},
             {'texto': 'B.- Motores 1 y 3, 2.26; motor 2, 2.25.', 'puntos': 0},
@@ -1063,6 +1078,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '40.- ¿Cuál es el EPR de despegue para las condiciones de operación R-1? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Busca la condición R-1 en la Figura 53. 2. Con la condición de temperatura, altitud y configuración, entra a la Figura 55 de ajuste EPR. 3. Lee el EPR de despegue correspondiente. El valor correcto es 2.035.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 2.04', 'puntos': 0},
             {'texto': 'B.- 2.01', 'puntos': 0},
@@ -1072,6 +1088,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '41.- ¿Cuál es el EPR de despegue para las condiciones de operación R-2? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Ubica R-2 en la Figura 53. 2. Traslada sus datos a la Figura 55, correspondiente al EPR de despegue. 3. Intersecta la condición indicada y lee el valor final. El EPR correcto es 2.16.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 2.19.', 'puntos': 0},
             {'texto': 'B.- 2.18.', 'puntos': 0},
@@ -1081,6 +1098,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '42.- ¿Cuál es el EPR de despegue para las condiciones de operación R-5? (Ref. Fig. 53, 54 y 55).',
         'explicacion': 'Ruta visual: 1. Identifica la condición R-5 en la Figura 53. 2. Entra a la Figura 55 con esa condición de operación. 3. Lee el valor de EPR de despegue asociado. El resultado correcto es 1.96.',
+        "imagenes": ["assets/figura53.jpg", "assets/figura54.jpg", "assets/figura55.jpg"],
         'respuestas': [
             {'texto': 'A.- 1.98.', 'puntos': 0},
             {'texto': 'B.- 1.95.', 'puntos': 0},
@@ -1090,6 +1108,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '43.- ¿Cuál es la distancia terrestre recorrida durante el ascenso en ruta para las condiciones de operación W-2? (Ref. Fig. 48, 49 y 50).',
         'explicacion': 'Ruta visual: 1. En la Figura 48 identifica los datos de la condición W-2. 2. En la Figura 49 sigue el perfil de ascenso en ruta usando peso inicial, temperatura y altitud. 3. En la Figura 50 lee la distancia terrestre recorrida durante el ascenso. El resultado es 79.4 NM.',
+        "imagenes": ["assets/figura48yfigura49.jpg", "assets/figura50.jpg"],
         'respuestas': [
             {'texto': 'A.- 85.8 Millas Náuticas.', 'puntos': 0},
             {'texto': 'B.- 87.8 Millas Náuticas.', 'puntos': 0},
@@ -1099,6 +1118,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '44.- ¿Cuál es la distancia terrestre recorrida durante el ascenso en ruta para las condiciones de operación W-5? (Ref. Fig. 48, 49 y 50).',
         'explicacion': 'Ruta visual: 1. Ubica W-5 en la Figura 48. 2. Lleva los datos de esa condición al gráfico de ascenso en ruta de la Figura 49. 3. Proyecta la lectura hacia la escala de distancia en la Figura 50. La distancia terrestre recorrida es 66.4 NM.',
+        "imagenes": ["assets/figura48yfigura49.jpg", "assets/figura50.jpg"],
         'respuestas': [
             {'texto': 'A.- 68.0 Millas Náuticas.', 'puntos': 0},
             {'texto': 'B.- 73.9 Millas Náuticas.', 'puntos': 0},
@@ -1108,6 +1128,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '45.- ¿Cuál es el peso del avión al término del ascenso para las condiciones de operación W-2? (Ref. Fig. 48, 49 y 50).',
         'explicacion': 'Ruta visual: 1. En la Figura 48 toma el peso inicial y condiciones W-2. 2. Usa la Figura 49 para determinar el combustible consumido en el ascenso. 3. Resta ese combustible al peso inicial y verifica en la Figura 50. El peso al término del ascenso es 83.800 lb.',
+        "imagenes": ["assets/figura48yfigura49.jpg", "assets/figura50.jpg"],
         'respuestas': [
             {'texto': 'A.- 82.775 Lbs', 'puntos': 0},
             {'texto': 'B.- 83.650 Lbs.', 'puntos': 0},
@@ -1117,6 +1138,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '46.- ¿Cuál es el peso del avión al término del ascenso para las condiciones de operación W-3? (Referencia Figuras 48, 49 y 50).',
         'explicacion': 'Ruta visual: 1. Identifica W-3 en la Figura 48. 2. Lee en la Figura 49 el consumo de combustible correspondiente al ascenso. 3. Resta ese consumo al peso inicial de la condición y comprueba en la Figura 50. El peso final es 75.900 lb.',
+        "imagenes": ["assets/figura48yfigura49.jpg", "assets/figura50.jpg"],
         'respuestas': [
             {'texto': 'A.- 75.750 Lbs.', 'puntos': 0},
             {'texto': 'B.- 75.900 Lbs.', 'puntos': 1},
@@ -1126,6 +1148,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '47.- ¿Cuál es el peso del avión al término del ascenso para las condiciones de operación W-5? (Referencia Figuras 48, 49 y 50).',
         'explicacion': 'Ruta visual: 1. Busca la condición W-5 en la Figura 48. 2. Determina en la Figura 49 el combustible requerido durante el ascenso. 3. Descuenta ese combustible del peso inicial y confirma la lectura en la Figura 50. El peso al término del ascenso es 90.000 lb.',
+        "imagenes": ["assets/figura48yfigura49.jpg", "assets/figura50.jpg"],
         'respuestas': [
             {'texto': 'A.- 89.900 Lbs.', 'puntos': 0},
             {'texto': 'B.- 90.000 Lbs', 'puntos': 1},
@@ -1135,6 +1158,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '48.- ¿Cuál es la distancia terrestre recorrida durante el ascenso en ruta para las condiciones de operación V-5? (Referencia Figuras 56, 57 y 58).',
         'explicacion': 'Ruta visual: 1. Ubica V-5 en la Figura 56. 2. Entra al gráfico de ascenso de la Figura 57 con las condiciones de peso, temperatura y altitud. 3. Proyecta hasta la escala de distancia de la Figura 58. La distancia terrestre recorrida es 61 NM.',
+        "imagenes": ["assets/figura56yfigura57.jpg", "assets/figura58.jpg"],
         'respuestas': [
             {'texto': 'A.- 70 Millas Náuticas.', 'puntos': 0},
             {'texto': 'B.- 47 Millas Náuticas.', 'puntos': 0},
@@ -1144,6 +1168,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '49.- ¿Cuánto combustible se consume durante el ascenso en ruta en las condiciones de operación V-1? (Referencia Figuras 56, 57 y 58).',
         'explicacion': 'Ruta visual: 1. En la Figura 56 identifica la condición V-1. 2. Con esos datos entra a la Figura 57 y sigue la trayectoria de ascenso hasta la altitud de crucero. 3. Lee el combustible consumido en la escala correspondiente de la Figura 58. El consumo es 4.000 lb.',
+        "imagenes": ["assets/figura56yfigura57.jpg", "assets/figura58.jpg"],
         'respuestas': [
             {'texto': 'A.- 4.100 Lbs.', 'puntos': 0},
             {'texto': 'B.- 3.600 Lbs.', 'puntos': 0},
@@ -1153,6 +1178,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '50.- ¿Cuánto combustible se consume durante el ascenso en ruta en las condiciones de operación V-2? (Referencia Figuras 56, 57 y 58).',
         'explicacion': 'Ruta visual: 1. Busca la condición V-2 en la Figura 56. 2. Usa la Figura 57 para seguir el perfil de ascenso con los datos de operación. 3. Lee el consumo de combustible en la Figura 58. El combustible consumido es 2.400 lb.',
+        "imagenes": ["assets/figura56yfigura57.jpg", "assets/figura58.jpg"],
         'respuestas': [
             {'texto': 'A.- 2.250 Lbs.', 'puntos': 0},
             {'texto': 'B.- 2.600 Lbs.', 'puntos': 0},
@@ -1162,6 +1188,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '51.- ¿Cuál es el peso del avión al término del ascenso en las condiciones de operación V-3? (Referencia Figuras 56, 57 y 58).',
         'explicacion': 'Ruta visual: 1. Ubica V-3 en la Figura 56 y toma el peso inicial. 2. Determina el combustible de ascenso con las Figuras 57 y 58. 3. Resta el consumo al peso inicial. El peso al término del ascenso es 82.200 lb.',
+        "imagenes": ["assets/figura56yfigura57.jpg", "assets/figura58.jpg"],
         'respuestas': [
             {'texto': 'A.- 82.100 Lbs.', 'puntos': 0},
             {'texto': 'B.- 82.500 Lbs.', 'puntos': 0},
@@ -1171,6 +1198,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '52.- ¿Cuál es el peso del avión al término del ascenso en las condiciones de operación V-5? (Referencia Figuras 56, 57 y 58).',
         'explicacion': 'Ruta visual: 1. Identifica V-5 en la Figura 56. 2. Usa la Figura 57 para obtener el combustible consumido durante el ascenso. 3. Descuenta ese consumo al peso inicial y verifica en la Figura 58. El peso final es 72.800 lb.',
+        "imagenes": ["assets/figura56yfigura57.jpg", "assets/figura58.jpg"],
         'respuestas': [
             {'texto': 'A.- 73.000 Lbs.', 'puntos': 0},
             {'texto': 'B.- 72.900 Lbs.', 'puntos': 0},
@@ -1180,6 +1208,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '53.- ¿Cuál es el EPR máximo de ascenso para las condiciones de operación T-1? (Referencia Figuras 59 y 60).',
         'explicacion': 'Ruta visual: 1. En la Figura 59 ubica las condiciones de operación T-1. 2. Entra a la Figura 60 con temperatura, altitud y régimen de ascenso. 3. Lee el EPR máximo de ascenso en la escala correspondiente. El valor correcto es 1.96.',
+        "imagenes": ["assets/figura59yfigura60.jpg"],
         'respuestas': [
             {'texto': 'A.- 1.82.', 'puntos': 0},
             {'texto': 'B.- 1.96.', 'puntos': 1},
@@ -1189,6 +1218,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '54.- ¿Cuál es el EPR máximo de ascenso para las condiciones de operación T-4? (Referencia Figuras 59 y 60).',
         'explicacion': 'Ruta visual: 1. Busca la condición T-4 en la Figura 59. 2. Traslada sus parámetros a la Figura 60 de EPR máximo de ascenso. 3. Intersecta las líneas de temperatura y altitud aplicables. La lectura final es EPR 2.06.',
+        "imagenes": ["assets/figura59yfigura60.jpg"],
         'respuestas': [
             {'texto': 'A.- 2.20.', 'puntos': 0},
             {'texto': 'B.- 2.07.', 'puntos': 0},
@@ -1261,6 +1291,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '62.- ¿Qué condición dará como resultado la distancia de aterrizaje más corta con un peso de 132.500 Lbs.? (Referencia Figuras 88 y 89).',
         'explicacion': 'Ruta visual: 1. En las Figuras 88 y 89 compara las curvas de pista seca y pista mojada para 132.500 lb. 2. Revisa las configuraciones de frenado disponibles: frenos, spoilers y reverso. 3. La curva que entrega menor distancia es pista seca usando frenos y reverso.',
+        "imagenes": ["assets/figura88.jpg", "assets/figura89.jpg"],
         'respuestas': [
             {'texto': 'A.- Pista seca usando frenos y reverso.', 'puntos': 1},
             {'texto': 'B.- Pista seca usando frenos y spoilers.', 'puntos': 0},
@@ -1270,6 +1301,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '63.- ¿Cuál es el peso máximo de aterrizaje que permitirá detenerse a 2000 pies del final de una pista seca de 5400 pies de largo, con reversos y spoilers inoperativos? (Referencia Figura 88).',
         'explicacion': 'Ruta visual: 1. En la Figura 88 calcula primero la distancia disponible: 5.400 ft de pista menos 2.000 ft que deben quedar libres, disponible 3.400 ft. 2. Entra al gráfico de pista seca con reversos y spoilers inoperativos. 3. Busca la intersección con 3.400 ft y proyecta hacia la escala de peso. El peso máximo es 139.500 lb.',
+        "imagenes": ["assets/figura88.jpg"],
         'respuestas': [
             {'texto': 'A.- 117.500 Lbs.', 'puntos': 0},
             {'texto': 'B.- 136.900 Lbs.', 'puntos': 0},
@@ -1279,6 +1311,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '64.- ¿Cuántos pies quedarán remanentes luego de aterrizar en una pista mojada de 6.000 pies con reversos inoperativos y 122.000 Lbs. de peso? (Referencia Figura 89).',
         'explicacion': 'Ruta visual: 1. En la Figura 89 selecciona pista mojada con reversos inoperativos. 2. Entra con el peso de aterrizaje de 122.000 lb y lee la distancia requerida de aterrizaje. 3. Resta esa distancia a los 6.000 ft disponibles. El remanente es 3.150 ft.',
+        "imagenes": ["assets/figura89.jpg"],
         'respuestas': [
             {'texto': 'A.- 2200', 'puntos': 0},
             {'texto': 'B.- 2750', 'puntos': 0},
@@ -1288,6 +1321,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '65.- ¿Cuál es la distancia de transición al aterrizar en una pista con hielo (icy runway) y con 134.000 Lbs. de peso? (Referencia Figura 90).',
         'explicacion': 'Ruta visual: 1. En la Figura 90 selecciona la condición de pista con hielo. 2. Ingresa con el peso de aterrizaje de 134.000 lb. 3. Lee la sección de distancia de transición antes del frenado efectivo. La distancia de transición es 950 ft.',
+        "imagenes": ["assets/figura90.jpg"],
         'respuestas': [
             {'texto': 'A.- 400 pies.', 'puntos': 0},
             {'texto': 'B.- 950 pies.', 'puntos': 1},
@@ -1297,6 +1331,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '66.- ¿Cuál es el peso máximo de aterrizaje que permitirá detener el avión 500 pies antes del final de una pista con hielo (Icy) y de 5200 pies de largo?. (Referencia Figura 90).',
         'explicacion': 'Ruta visual: 1. En la Figura 90 determina la distancia máxima utilizable: 5.200 ft de pista menos 500 ft de margen, disponible 4.700 ft. 2. Entra al gráfico de pista con hielo. 3. Proyecta desde 4.700 ft hacia la escala de peso máximo. El peso permitido es 137.000 lb.',
+        "imagenes": ["assets/figura90.jpg"],
         'respuestas': [
             {'texto': 'A.- 150.000 Lbs.', 'puntos': 0},
             {'texto': 'B.- 137.000 Lbs.', 'puntos': 1},
@@ -1306,6 +1341,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '67.- ¿Cuánto es la distancia de aterrizaje en una pista contaminada con hielo, con reversos inoperativos y con un peso de 125.000 Lbs. (Referencia Figura 90).',
         'explicacion': 'Ruta visual: 1. En la Figura 90 selecciona pista contaminada con hielo y reversos inoperativos. 2. Ingresa con peso de aterrizaje de 125.000 lb. 3. Proyecta hasta la escala de distancia total de aterrizaje. La distancia requerida es 5.800 ft.',
+        "imagenes": ["assets/figura90.jpg"],
         'respuestas': [
             {'texto': 'A.- 4.500 pies', 'puntos': 0},
             {'texto': 'B.- 4.750 pies', 'puntos': 0},
@@ -1315,6 +1351,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     {
         'texto': '68.- ¿Cuánto se reducirá la distancia de aterrizaje usando 15º de flaps en lugar de 0º, con un peso de aterrizaje de 119.000 Lbs.? (Referencia Figura 91).',
         'explicacion': 'Ruta visual: 1. En la Figura 91 entra con peso de aterrizaje 119.000 lb. 2. Lee la distancia de aterrizaje con flaps 0 grados. 3. Lee luego la distancia con flaps 15 grados y compara ambas lecturas. La reducción obtenida es 800 ft.',
+        "imagenes": ["assets/figura91.jpg"],
         'respuestas': [
             {'texto': 'A.- 500 pies', 'puntos': 0},
             {'texto': 'B.- 800 pies', 'puntos': 1},
@@ -2010,7 +2047,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "4.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-7? (Referencia Figuras 77, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-7 (Figuras 77), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-7 el resultado correcto es 24.0% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 21.6% MAC.", "puntos": 0},
     {"texto": "B.- 22.9% МАС.", "puntos": 0},
@@ -2020,7 +2057,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "5.- ¿Cuál es el índice del peso total para la distribución de carga WT-9? (Referencia. Figuras 77, 79 у 80).",
   "explicacion": "Ruta visual: 1) En la figura correspondiente a la distribución WT-9, toma los pesos de cada estación/compartimiento. 2) Lleva cada peso a la tabla/gráfico de momentos de las Figuras 77, 79 y 80 y obtén su índice. 3) Suma todos los índices parciales, junto con el índice básico aplicable. 4) El índice total obtenido para WT-9 corresponde a 169.755,2 de índice.",
-  "imagenes": "",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 169.755,2 Índice", "puntos": 1},
     {"texto": "B.- 158.797,9 Índice", "puntos": 0},
@@ -2030,7 +2067,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "6.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-11? (Referencia, Figuras 78, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-11 (Figuras 78), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-11 el resultado correcto es 26.8% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 26.8% МАС.", "puntos": 1},
     {"texto": "B.- 27.5% МАС.", "puntos": 0},
@@ -2040,7 +2077,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "7.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-14? (Referencia Figuras 78, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-14 (Figuras 78), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-14 el resultado correcto es 31.5% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 30.1% МАС.", "puntos": 0},
     {"texto": "B.- 29.5% МАС.", "puntos": 0},
@@ -2050,7 +2087,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "8.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación A-3? (Referencia, Figuras 45, 46 y 47).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación A-3 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 45, 46 y 47, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para A-3 corresponde 20% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
   "respuestas": [
     {"texto": "A.- 18% MAC.", "puntos": 0},
     {"texto": "B.- 20% MAC.", "puntos": 1},
@@ -2060,7 +2097,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "9.- ¿Cuál es el ajuste de compensador (trim) para la condición de operación A-4? (Referencia, Figuras 45, 46 у 47).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación A-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 45, 46 y 47, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para A-4 corresponde 22% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
   "respuestas": [
     {"texto": "A.- 26% MAC.", "puntos": 0},
     {"texto": "B.- 22% MAC.", "puntos": 1},
@@ -2070,7 +2107,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "10.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación R-2? (Referencia, Figuras 53 y 55).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación R-2 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 53 y 55, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para R-2 corresponde 6-3/4 ANU.",
-  "imagenes": "",
+  "imagenes": ["assets/figura53.jpg", "assets/figura55.jpg"],
   "respuestas": [
     {"texto": "A.- 5-3/4 ΑNU.", "puntos": 0},
     {"texto": "B.- 7 ANU.", "puntos": 0},
@@ -2080,7 +2117,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "11.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación R-4? (Referencia, Figuras 53 y 55).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación R-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 53 y 55, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para R-4 corresponde 4-1/2 ANU.",
-  "imagenes": "",
+  "imagenes": ["assets/figura53.jpg", "assets/figura55.jpg"],
   "respuestas": [
     {"texto": "A.- 4-1/4 ANU.", "puntos": 0},
     {"texto": "B.- 4-1/2 ANU.", "puntos": 1},
@@ -2090,7 +2127,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "12.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-1? (Referencia, Figuras 81 у 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-1 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-1 corresponde 4-3/4 ANU.",
-  "imagenes": "",
+  "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
   "respuestas": [
     {"texto": "A.- 4 ANU.", "puntos": 0},
     {"texto": "B.- 4-1/2 ΑNU.", "puntos": 0},
@@ -2100,7 +2137,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "13.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-3? (Referencia, Figuras 81 у 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-3 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-3 corresponde 4 ANU.",
-  "imagenes": "",
+  "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
   "respuestas": [
     {"texto": "A.- 3-3/4 ANU.", "puntos": 0},
     {"texto": "B.- 4 ANU.", "puntos": 1},
@@ -2110,7 +2147,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "14.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-4? (Referencia, figuras 81 y 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-4 corresponde 2-3/4 ANU.",
-  "imagenes": "",
+  "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
   "respuestas": [
     {"texto": "A.- 2-3/4 ΑNU.", "puntos": 1},
     {"texto": "B.- 4 ANU.", "puntos": 0},
@@ -2120,7 +2157,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "15.- ¿Cuál es el nuevo CG si el peso del compartimiento delantero es retirado, de acuerdo a la condición de carga WS-1? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-1 y el CG inicial. 2) Aplica la modificación indicada: retirar peso del compartimiento delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 30.0% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- 27.1% МАС.", "puntos": 0},
     {"texto": "B.- 26.8% МАС.", "puntos": 0},
@@ -2130,7 +2167,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "16.- ¿Dónde queda el nuevo CG si el peso es agregado al compartimiento trasero de acuerdo a las condiciones de carga WS-2? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-2 y el CG inicial. 2) Aplica la modificación indicada: agregar peso al compartimiento trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es +14.82 de brazo de índice.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- +17.06 Brazo de índice.", "puntos": 0},
     {"texto": "B.- +14.82 Brazo de índice.", "puntos": 1},
@@ -2140,7 +2177,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "17.- ¿Cuál es el nuevo CG si el peso es retirado del compartimiento delantero de acuerdo a las condiciones de carga WS-5? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-5 y el CG inicial. 2) Aplica la modificación indicada: retirar peso del compartimiento delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 35.2% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- 31.9% MAC.", "puntos": 0},
     {"texto": "B.- 19.1% MAC.", "puntos": 0},
@@ -2150,7 +2187,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "18.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento delantero al compartimiento trasero de acuerdo a las condiciones de carga WS-1? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-1 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento delantero al trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 30.0% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- 15.2% MAC", "puntos": 0},
     {"texto": "B.- 29.8% MAC", "puntos": 0},
@@ -2160,7 +2197,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "19.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento trasero al compartimiento delantero de acuerdo a las condiciones de carga WS-2? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-2 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento trasero al delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia adelante y la lectura final es 22.8% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- 26.1% MAC", "puntos": 0},
     {"texto": "B.- 20.5% MAC", "puntos": 0},
@@ -2170,7 +2207,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "20.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento trasero al compartimiento delantero de acuerdo a las condiciones de carga WS-4? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-4 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento trasero al delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia adelante y la lectura final es 23.5% MAC.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- 37.0% МАС.", "puntos": 0},
     {"texto": "B.- 23.5% МАС.", "puntos": 1},
@@ -2180,7 +2217,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "21.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento delantero al compartimiento trasero de acuerdo a las condiciones de carga WS-5? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-5 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento delantero al trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es +19.15 de brazo de índice.",
-  "imagenes": "",
+  "imagenes": ["assets/figura44yfigura45.jpg"],
   "respuestas": [
     {"texto": "A.- + 19.15 Brazo de índice", "puntos": 1},
     {"texto": "B.- + 13.93 Brazo de índice", "puntos": 0},
@@ -2226,7 +2263,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "26.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-1? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-1 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 291,8.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 290,3", "puntos": 0},
     {"texto": "B.- Estación 285,8", "puntos": 0},
@@ -2236,7 +2273,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "27.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-2? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-2 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 292,9.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 295,2", "puntos": 0},
     {"texto": "B.- Estación 292,9", "puntos": 1},
@@ -2246,7 +2283,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "28.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-3? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-3 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 288,2.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 288,2", "puntos": 1},
     {"texto": "B.- Estación 285,8", "puntos": 0},
@@ -2256,7 +2293,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "29.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-4? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-4 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 297,7.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 297,4", "puntos": 0},
     {"texto": "B.- Estación 299,6", "puntos": 0},
@@ -2266,7 +2303,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "30.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-5? (Referencia figuras 3, 6, 8, 9, 10, y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-5 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 288,9.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 288,9", "puntos": 1},
     {"texto": "B.- Estación 290,5", "puntos": 0},
@@ -2276,7 +2313,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "31.- ¿Cuál es el cambio de CG si los pasajeros de la fila 1 son cambiados a asientos de la fila 9 bajo las condiciones de carga BE-1? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-1, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 1 a fila 9. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 6,2 pulgadas atrás.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 1,5 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 5,6 Pulgadas atrás.", "puntos": 0},
@@ -2286,7 +2323,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "32.- ¿Cuál es el cambio de CG si los pasajeros de la fila 1 son movidos a la fila 8, y los pasajeros de la fila 2 son cambiados a la fila 9 bajo las condiciones de carga BE-2? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-2, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 1 a fila 8 y de fila 2 a fila 9. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 7,8 pulgadas atrás.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 9,2 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 5,7 Pulgadas atrás", "puntos": 0},
@@ -2296,7 +2333,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "33.- ¿Cuál es el cambio de CG si cuatro pasajeros que pesan 170 libras son agregados: dos a los asientos de la fila 6 y dos a los asientos de la fila 7 bajo las condiciones de carga BE-3? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-3, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: cuatro pasajeros de 170 lb agregados en filas 6 y 7. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 1,8 pulgadas atrás.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 3,5 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 2,2 Pulgadas atrás.", "puntos": 0},
@@ -2306,7 +2343,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "34.- ¿Cuál es el cambio de CG si todos los pasajeros de la fila 2 y 4 son desembarcados bajo las condiciones de carga BE-4? (Referencia figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-4, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: desembarcar todos los pasajeros de filas 2 y 4. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 2,5 pulgadas atrás.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 2,5 Pulgadas atrás.", "puntos": 1},
     {"texto": "B.- 2,5 Pulgadas adelante.", "puntos": 0},
@@ -2316,7 +2353,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "35.- ¿Cuál es el desplazamiento de CG si los pasajeros de la fila 8 son movidos a la fila 2, y los pasajeros de la fila 7 son cambiados a la fila 1 bajo las condiciones de carga BE-5? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-5, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 8 a fila 2 y de fila 7 a fila 1. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 8,9 pulgadas adelante.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura5yfigura6.jpg", "assets/figura8.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 1,0 Pulgadas adelante.", "puntos": 0},
     {"texto": "B.- 8,9 Pulgadas adelante.", "puntos": 1},
@@ -2326,7 +2363,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "36.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-7? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-7. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-7 corresponde Estación 297,8.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 296,0", "puntos": 0},
     {"texto": "B.- Estación 297,8", "puntos": 1},
@@ -2336,7 +2373,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "37.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-8? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-8. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-8 corresponde Estación 302,0.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 297,4", "puntos": 0},
     {"texto": "B.- Estación 298,1", "puntos": 0},
@@ -2346,7 +2383,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "38.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-9? (Referencia figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-9. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-9 corresponde Estación 301,2.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 296,7", "puntos": 0},
     {"texto": "B.- Estación 297,1", "puntos": 0},
@@ -2356,7 +2393,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "39.- ¿Cuál es el cambio de CG si 300 libras de la sección A son movidas a la sección H bajo las condiciones de carga BE-6? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-6 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: mover 300 lb desde la sección A hacia la sección H, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es 4,0 pulgadas atrás.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 4,1 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 3,5 Pulgadas atrás.", "puntos": 0},
@@ -2366,7 +2403,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "40.- ¿Cuál es el cambio de CG si la carga de la sección F es movida a la sección A, y 200 libras de carga de la sección G son agregadas a la sección B bajo las condiciones de carga BE-7? (Referencia, figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-7 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: mover la carga de F hacia A y agregar 200 lb de G en B, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es 8,2 pulgadas adelante.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- 7,5 Pulgadas adelante.", "puntos": 0},
     {"texto": "B.- 8,0 Pulgadas adelante.", "puntos": 0},
@@ -2376,7 +2413,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "41.- ¿Cuál es el CG si la carga de las secciones A, B, J, K y L es retirada bajo las condiciones de carga BE-8? (Referencia, Figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-8 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: retirar la carga de las secciones A, B, J, K y L, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es Estación 297,0.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 292,7", "puntos": 0},
     {"texto": "B.- Estación 297,0", "puntos": 1},
@@ -2386,7 +2423,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "42.- ¿Cuál es el CG si se carga las secciones F, G y Ha su máxima capacidad bajo las condiciones de carga BE-9? (Referencia, Figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-9 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: cargar las secciones F, G y H a su máxima capacidad, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es Estación 307,5.",
-  "imagenes": "",
+  "imagenes": ["assets/figura3yfigura4.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "assets/figura10.jpg", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- Estación 307,5", "puntos": 1},
     {"texto": "B.- Estación 305,4", "puntos": 0},
@@ -2396,7 +2433,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "43.- ¿Qué límite es excedido bajo las condiciones de operación BE-11? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-11. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-11 es: el límite trasero del CG es excedido con peso de despegue.",
-  "imagenes": "",
+  "imagenes": ["assets/figura5yfigura6.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- EI ZFW es excedido.", "puntos": 0},
     {"texto": "B.- El límite trasero del CG es excedido con peso de despegue.", "puntos": 1},
@@ -2406,7 +2443,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "44.- ¿Qué límite (límites) es (son) excedido (excedidos) bajo las condiciones de operación BE-12? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-12. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-12 es: el ZFW y el peso máximo de despegue son excedidos.",
-  "imagenes": "",
+  "imagenes": ["assets/figura5yfigura6.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- El máximo ZFW es excedido.", "puntos": 0},
     {"texto": "B.- El límite trasero del CG es excedido en el aterrizaje.", "puntos": 0},
@@ -2416,7 +2453,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "45.- ¿Qué límite (s) es (son) excedido (s) bajo las condiciones de operación BE-15? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-15. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-15 es: el peso máximo de despegue y el límite delantero del CG de despegue son excedidos.",
-  "imagenes": "",
+  "imagenes": ["assets/figura5yfigura6.jpg", "assets/figura7.jpg", "assets/figura9.jpg", "", "assets/figura11.jpg"],
   "respuestas": [
     {"texto": "A.- El peso máximo de despegue es excedido.", "puntos": 0},
     {"texto": "B.- El ZFW máximo y el límite delantero del CG de despegue son excedidos.", "puntos": 0},
@@ -4834,6 +4871,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
 @override
 Widget build(BuildContext context) {
   return Scaffold(
+    resizeToAvoidBottomInset: false,
     backgroundColor: azulFondo,
     body: Stack(
       clipBehavior: Clip.none, // Usamos Stack para que el logo no "empuje" al login
@@ -5057,7 +5095,7 @@ class MainMenu extends StatelessWidget {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              // 🟥 NUEVO: Cuadro "Ver Instructivo" agregado arriba de las materias
+              //Cuadro "Ver Instructivo" agregado arriba de las materias
               Card(
                 elevation: 3,
                 color: Colors.indigo.shade50,
@@ -5127,6 +5165,7 @@ class MainMenu extends StatelessWidget {
                                 scale: 1.35,
                                 child: Image.asset(
                                   materia['Imagen'].toString(),
+                                  
                                   cacheWidth: 400,
                                   filterQuality: FilterQuality.high,
                                   fit: BoxFit.contain,
@@ -5467,25 +5506,8 @@ class _QuizPageState extends State<QuizPage> {
             minHeight: 6,
           ),
           const SizedBox(height: 25),
-          if (pregunta.containsKey('imagenes'))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                children: (pregunta['imagenes'] as List<String>).map((ruta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Image.asset(
-                      ruta,
-                      height: 500,
-                      filterQuality: FilterQuality.high, // Puedes reducir el tamaño para que quepan varias
-                      fit: BoxFit.contain,
-                    ),
-                );
-              }).toList(),
-            ),
-          ),
           Card(
-            elevation: 2,
+            elevation: 10,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -5496,7 +5518,53 @@ class _QuizPageState extends State<QuizPage> {
               ),
             ),
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 20),
+          if (pregunta.containsKey('imagenes'))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                children: (pregunta['imagenes'] as List<String>).map((ruta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 15.0),
+                    // Usamos un Stack para poner el icono sobre la imagen
+                    child: Stack(
+                      children: [
+                        InteractiveViewer(
+                          panEnabled: true,
+                          boundaryMargin: const EdgeInsets.all(20),
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: Image.asset(
+                            ruta,
+                            height: 400,
+                            filterQuality: FilterQuality.high,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        // Aquí añadimos el icono en la esquina superior derecha
+                        Positioned(
+                          right: 10,
+                          top: 10,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5), // Fondo oscuro semitransparente
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.zoom_in, // Puedes cambiarlo por Icons.search
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
           ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes], mostrarSolucion, seleccionGuardada)),
           if (mostrarSolucion)
            KeyedSubtree(
