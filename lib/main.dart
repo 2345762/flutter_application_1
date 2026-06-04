@@ -1979,6 +1979,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 final List<Map<String, Object>> poolpesoybalance = [
   {
   "texto": "1.- ¿Cuál es el CG en porcentaje MAC para la distribución de carga WT-1? (Referencia, Figuras 76, 79 у 80).",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-1 (Figuras 76), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-1 el resultado correcto es 27.1% MAC.",
   "respuestas": [
     {"texto": "A.- 26.0% MAC.", "puntos": 0},
@@ -1989,6 +1990,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "2.- ¿A cuántas pulgadas detrás del DATUM se sitúa el CG en la distribución de carga WT-2? (Referencia, Figuras 76, 79 у 80).",
   "explicacion": "Ruta visual: 1) En la Figura 76 ubica la condición WT-2 y obtiene el peso total e índice/momento total. 2) Con esos datos entra al gráfico de CG de las Figuras 79 y 80. 3) Proyecta el peso total hasta interceptar el índice/momento de la condición. 4) Lee la estación del CG en pulgadas desde el Datum; el valor resultante es 909.6 pulgadas detrás del Datum.",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 908.8 pulgadas", "puntos": 0},
     {"texto": "B.- 909.6 pulgadas", "puntos": 1},
@@ -1998,6 +2000,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "3.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-3? (Referencia, Figuras 76, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-3 (Figuras 76), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-3 el resultado correcto es 28.9% MAC.",
+  "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
   "respuestas": [
     {"texto": "A.- 27.8% МАС.", "puntos": 0},
     {"texto": "B.- 28.9% MAC.", "puntos": 1},
@@ -2007,6 +2010,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "4.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-7? (Referencia Figuras 77, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-7 (Figuras 77), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-7 el resultado correcto es 24.0% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 21.6% MAC.", "puntos": 0},
     {"texto": "B.- 22.9% МАС.", "puntos": 0},
@@ -2016,6 +2020,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "5.- ¿Cuál es el índice del peso total para la distribución de carga WT-9? (Referencia. Figuras 77, 79 у 80).",
   "explicacion": "Ruta visual: 1) En la figura correspondiente a la distribución WT-9, toma los pesos de cada estación/compartimiento. 2) Lleva cada peso a la tabla/gráfico de momentos de las Figuras 77, 79 y 80 y obtén su índice. 3) Suma todos los índices parciales, junto con el índice básico aplicable. 4) El índice total obtenido para WT-9 corresponde a 169.755,2 de índice.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 169.755,2 Índice", "puntos": 1},
     {"texto": "B.- 158.797,9 Índice", "puntos": 0},
@@ -2025,6 +2030,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "6.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-11? (Referencia, Figuras 78, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-11 (Figuras 78), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-11 el resultado correcto es 26.8% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 26.8% МАС.", "puntos": 1},
     {"texto": "B.- 27.5% МАС.", "puntos": 0},
@@ -2034,6 +2040,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "7.- ¿Cuál es el CG en porcentaje de MAC para la distribución de carga WT-14? (Referencia Figuras 78, 79 y 80).",
   "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-14 (Figuras 78), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-14 el resultado correcto es 31.5% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 30.1% МАС.", "puntos": 0},
     {"texto": "B.- 29.5% МАС.", "puntos": 0},
@@ -2043,6 +2050,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "8.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación A-3? (Referencia, Figuras 45, 46 y 47).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación A-3 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 45, 46 y 47, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para A-3 corresponde 20% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 18% MAC.", "puntos": 0},
     {"texto": "B.- 20% MAC.", "puntos": 1},
@@ -2052,6 +2060,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "9.- ¿Cuál es el ajuste de compensador (trim) para la condición de operación A-4? (Referencia, Figuras 45, 46 у 47).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación A-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 45, 46 y 47, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para A-4 corresponde 22% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 26% MAC.", "puntos": 0},
     {"texto": "B.- 22% MAC.", "puntos": 1},
@@ -2061,6 +2070,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "10.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación R-2? (Referencia, Figuras 53 y 55).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación R-2 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 53 y 55, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para R-2 corresponde 6-3/4 ANU.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 5-3/4 ΑNU.", "puntos": 0},
     {"texto": "B.- 7 ANU.", "puntos": 0},
@@ -2070,6 +2080,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "11.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación R-4? (Referencia, Figuras 53 y 55).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación R-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 53 y 55, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para R-4 corresponde 4-1/2 ANU.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 4-1/4 ANU.", "puntos": 0},
     {"texto": "B.- 4-1/2 ANU.", "puntos": 1},
@@ -2079,6 +2090,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "12.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-1? (Referencia, Figuras 81 у 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-1 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-1 corresponde 4-3/4 ANU.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 4 ANU.", "puntos": 0},
     {"texto": "B.- 4-1/2 ΑNU.", "puntos": 0},
@@ -2088,6 +2100,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "13.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-3? (Referencia, Figuras 81 у 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-3 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-3 corresponde 4 ANU.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 3-3/4 ANU.", "puntos": 0},
     {"texto": "B.- 4 ANU.", "puntos": 1},
@@ -2097,6 +2110,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "14.- ¿Cuál es el ajuste (setting) de compensador (trim) para la condición de operación G-4? (Referencia, figuras 81 y 83).",
   "explicacion": "Ruta visual: 1) Busca la condición de operación G-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-4 corresponde 2-3/4 ANU.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 2-3/4 ΑNU.", "puntos": 1},
     {"texto": "B.- 4 ANU.", "puntos": 0},
@@ -2106,6 +2120,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "15.- ¿Cuál es el nuevo CG si el peso del compartimiento delantero es retirado, de acuerdo a la condición de carga WS-1? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-1 y el CG inicial. 2) Aplica la modificación indicada: retirar peso del compartimiento delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 30.0% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 27.1% МАС.", "puntos": 0},
     {"texto": "B.- 26.8% МАС.", "puntos": 0},
@@ -2115,6 +2130,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "16.- ¿Dónde queda el nuevo CG si el peso es agregado al compartimiento trasero de acuerdo a las condiciones de carga WS-2? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-2 y el CG inicial. 2) Aplica la modificación indicada: agregar peso al compartimiento trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es +14.82 de brazo de índice.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- +17.06 Brazo de índice.", "puntos": 0},
     {"texto": "B.- +14.82 Brazo de índice.", "puntos": 1},
@@ -2124,6 +2140,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "17.- ¿Cuál es el nuevo CG si el peso es retirado del compartimiento delantero de acuerdo a las condiciones de carga WS-5? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-5 y el CG inicial. 2) Aplica la modificación indicada: retirar peso del compartimiento delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 35.2% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 31.9% MAC.", "puntos": 0},
     {"texto": "B.- 19.1% MAC.", "puntos": 0},
@@ -2133,6 +2150,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "18.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento delantero al compartimiento trasero de acuerdo a las condiciones de carga WS-1? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-1 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento delantero al trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 30.0% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 15.2% MAC", "puntos": 0},
     {"texto": "B.- 29.8% MAC", "puntos": 0},
@@ -2142,6 +2160,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "19.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento trasero al compartimiento delantero de acuerdo a las condiciones de carga WS-2? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-2 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento trasero al delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia adelante y la lectura final es 22.8% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 26.1% MAC", "puntos": 0},
     {"texto": "B.- 20.5% MAC", "puntos": 0},
@@ -2151,6 +2170,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "20.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento trasero al compartimiento delantero de acuerdo a las condiciones de carga WS-4? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-4 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento trasero al delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia adelante y la lectura final es 23.5% MAC.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 37.0% МАС.", "puntos": 0},
     {"texto": "B.- 23.5% МАС.", "puntos": 1},
@@ -2160,6 +2180,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "21.- ¿Cuál es el nuevo CG si el peso es cambiado desde el compartimiento delantero al compartimiento trasero de acuerdo a las condiciones de carga WS-5? (Referencia, Figura 44).",
   "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-5 y el CG inicial. 2) Aplica la modificación indicada: mover peso desde el compartimiento delantero al trasero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es +19.15 de brazo de índice.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- + 19.15 Brazo de índice", "puntos": 1},
     {"texto": "B.- + 13.93 Brazo de índice", "puntos": 0},
@@ -2205,6 +2226,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "26.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-1? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-1 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 291,8.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 290,3", "puntos": 0},
     {"texto": "B.- Estación 285,8", "puntos": 0},
@@ -2214,6 +2236,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "27.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-2? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-2 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 292,9.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 295,2", "puntos": 0},
     {"texto": "B.- Estación 292,9", "puntos": 1},
@@ -2223,6 +2246,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "28.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-3? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-3 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 288,2.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 288,2", "puntos": 1},
     {"texto": "B.- Estación 285,8", "puntos": 0},
@@ -2232,6 +2256,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "29.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-4? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-4 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 297,7.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 297,4", "puntos": 0},
     {"texto": "B.- Estación 299,6", "puntos": 0},
@@ -2241,6 +2266,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "30.- ¿A qué distancia en pulgadas desde el Datum se encuentra el CG bajo las condiciones de carga BE-5? (Referencia figuras 3, 6, 8, 9, 10, y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 3 ubica la condición BE-5 y toma la distribución de pasajeros, equipaje y combustible. 2) Con las Figuras 6, 8, 9, 10 y 11 obtiene los pesos y momentos de tripulación, filas de asientos, equipaje y combustible. 3) Suma peso total y momento total. 4) Divide momento total por peso total para obtener la estación del CG desde el Datum; la lectura final es Estación 288,9.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 288,9", "puntos": 1},
     {"texto": "B.- Estación 290,5", "puntos": 0},
@@ -2250,6 +2276,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "31.- ¿Cuál es el cambio de CG si los pasajeros de la fila 1 son cambiados a asientos de la fila 9 bajo las condiciones de carga BE-1? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-1, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 1 a fila 9. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 6,2 pulgadas atrás.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 1,5 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 5,6 Pulgadas atrás.", "puntos": 0},
@@ -2259,6 +2286,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "32.- ¿Cuál es el cambio de CG si los pasajeros de la fila 1 son movidos a la fila 8, y los pasajeros de la fila 2 son cambiados a la fila 9 bajo las condiciones de carga BE-2? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-2, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 1 a fila 8 y de fila 2 a fila 9. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 7,8 pulgadas atrás.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 9,2 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 5,7 Pulgadas atrás", "puntos": 0},
@@ -2268,6 +2296,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "33.- ¿Cuál es el cambio de CG si cuatro pasajeros que pesan 170 libras son agregados: dos a los asientos de la fila 6 y dos a los asientos de la fila 7 bajo las condiciones de carga BE-3? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-3, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: cuatro pasajeros de 170 lb agregados en filas 6 y 7. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 1,8 pulgadas atrás.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 3,5 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 2,2 Pulgadas atrás.", "puntos": 0},
@@ -2277,6 +2306,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "34.- ¿Cuál es el cambio de CG si todos los pasajeros de la fila 2 y 4 son desembarcados bajo las condiciones de carga BE-4? (Referencia figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-4, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: desembarcar todos los pasajeros de filas 2 y 4. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 2,5 pulgadas atrás.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 2,5 Pulgadas atrás.", "puntos": 1},
     {"texto": "B.- 2,5 Pulgadas adelante.", "puntos": 0},
@@ -2286,6 +2316,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "35.- ¿Cuál es el desplazamiento de CG si los pasajeros de la fila 8 son movidos a la fila 2, y los pasajeros de la fila 7 son cambiados a la fila 1 bajo las condiciones de carga BE-5? (Referencia, Figuras 3, 6, 8, 9, 10, у 11).",
   "explicacion": "Ruta visual: 1) Parte del peso total y CG inicial de la condición BE-5, obtenido con las Figuras 3, 6, 8, 9, 10 y 11. 2) Identifica en la Figura 6 los brazos/momentos de las filas involucradas. 3) Calcula el cambio de momento por el movimiento indicado: pasajeros de fila 8 a fila 2 y de fila 7 a fila 1. 4) Divide el cambio de momento por el peso final aplicable para obtener el desplazamiento del CG; el resultado es 8,9 pulgadas adelante.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 1,0 Pulgadas adelante.", "puntos": 0},
     {"texto": "B.- 8,9 Pulgadas adelante.", "puntos": 1},
@@ -2295,6 +2326,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "36.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-7? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-7. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-7 corresponde Estación 297,8.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 296,0", "puntos": 0},
     {"texto": "B.- Estación 297,8", "puntos": 1},
@@ -2304,6 +2336,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "37.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-8? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-8. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-8 corresponde Estación 302,0.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 297,4", "puntos": 0},
     {"texto": "B.- Estación 298,1", "puntos": 0},
@@ -2313,6 +2346,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "38.- ¿Cuál es el CG en pulgadas desde el Datum bajo las condiciones de carga BE-9? (Referencia figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 4 ubica la condición de carga BE-9. 2) Usa la Figura 7 para tomar los brazos/momentos de cada sección de carga y las Figuras 9, 10 y 11 para combustible y datos complementarios. 3) Suma todos los pesos y momentos. 4) Divide momento total por peso total para leer el CG en pulgadas desde el Datum; para BE-9 corresponde Estación 301,2.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 296,7", "puntos": 0},
     {"texto": "B.- Estación 297,1", "puntos": 0},
@@ -2322,6 +2356,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "39.- ¿Cuál es el cambio de CG si 300 libras de la sección A son movidas a la sección H bajo las condiciones de carga BE-6? (Referencia, Figuras 4, 7, 9, 10 у 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-6 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: mover 300 lb desde la sección A hacia la sección H, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es 4,0 pulgadas atrás.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 4,1 Pulgadas atrás.", "puntos": 0},
     {"texto": "B.- 3,5 Pulgadas atrás.", "puntos": 0},
@@ -2331,6 +2366,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "40.- ¿Cuál es el cambio de CG si la carga de la sección F es movida a la sección A, y 200 libras de carga de la sección G son agregadas a la sección B bajo las condiciones de carga BE-7? (Referencia, figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-7 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: mover la carga de F hacia A y agregar 200 lb de G en B, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es 8,2 pulgadas adelante.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- 7,5 Pulgadas adelante.", "puntos": 0},
     {"texto": "B.- 8,0 Pulgadas adelante.", "puntos": 0},
@@ -2340,6 +2376,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "41.- ¿Cuál es el CG si la carga de las secciones A, B, J, K y L es retirada bajo las condiciones de carga BE-8? (Referencia, Figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-8 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: retirar la carga de las secciones A, B, J, K y L, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es Estación 297,0.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 292,7", "puntos": 0},
     {"texto": "B.- Estación 297,0", "puntos": 1},
@@ -2349,6 +2386,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "42.- ¿Cuál es el CG si se carga las secciones F, G y Ha su máxima capacidad bajo las condiciones de carga BE-9? (Referencia, Figuras 4, 7, 9, 10 y 11).",
   "explicacion": "Ruta visual: 1) Toma el peso y momento inicial de la condición BE-9 con las Figuras 4, 7, 9, 10 y 11. 2) En la Figura 7 identifica el brazo/momento de las secciones afectadas. 3) Aplica la modificación: cargar las secciones F, G y H a su máxima capacidad, sumando o restando los momentos correspondientes. 4) Con el nuevo peso y momento total calcula la nueva estación de CG; el resultado correcto es Estación 307,5.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- Estación 307,5", "puntos": 1},
     {"texto": "B.- Estación 305,4", "puntos": 0},
@@ -2358,6 +2396,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "43.- ¿Qué límite es excedido bajo las condiciones de operación BE-11? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-11. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-11 es: el límite trasero del CG es excedido con peso de despegue.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- EI ZFW es excedido.", "puntos": 0},
     {"texto": "B.- El límite trasero del CG es excedido con peso de despegue.", "puntos": 1},
@@ -2367,6 +2406,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "44.- ¿Qué límite (límites) es (son) excedido (excedidos) bajo las condiciones de operación BE-12? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-12. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-12 es: el ZFW y el peso máximo de despegue son excedidos.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- El máximo ZFW es excedido.", "puntos": 0},
     {"texto": "B.- El límite trasero del CG es excedido en el aterrizaje.", "puntos": 0},
@@ -2376,6 +2416,7 @@ final List<Map<String, Object>> poolpesoybalance = [
 {
   "texto": "45.- ¿Qué límite (s) es (son) excedido (s) bajo las condiciones de operación BE-15? (Referencia Figuras 5, 7, 9 y 11).",
   "explicacion": "Ruta visual: 1) En la Figura 5 toma los pesos y condiciones de operación BE-15. 2) Con las Figuras 7, 9 y 11 determina el peso, combustible y CG resultante para despegue/aterrizaje según corresponda. 3) Compara el punto obtenido con la envolvente y límites de peso publicados. 4) El límite excedido para BE-15 es: el peso máximo de despegue y el límite delantero del CG de despegue son excedidos.",
+  "imagenes": "",
   "respuestas": [
     {"texto": "A.- El peso máximo de despegue es excedido.", "puntos": 0},
     {"texto": "B.- El ZFW máximo y el límite delantero del CG de despegue son excedidos.", "puntos": 0},
@@ -5426,6 +5467,23 @@ class _QuizPageState extends State<QuizPage> {
             minHeight: 6,
           ),
           const SizedBox(height: 25),
+          if (pregunta.containsKey('imagenes'))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                children: (pregunta['imagenes'] as List<String>).map((ruta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Image.asset(
+                      ruta,
+                      height: 500,
+                      filterQuality: FilterQuality.high, // Puedes reducir el tamaño para que quepan varias
+                      fit: BoxFit.contain,
+                    ),
+                );
+              }).toList(),
+            ),
+          ),
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
