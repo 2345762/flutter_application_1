@@ -13,6 +13,10 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
 // =============================================================
@@ -5070,7 +5074,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
         children: [
           // 1. LOGO: Independiente, sin empujar al login
           Positioned(
-            top: 40, // Ajusta este valor para subir/bajar el logo
+            top: 70, // Ajusta este valor para subir/bajar el logo
             left: 0,
             right: 0,
             child: TweenAnimationBuilder<double>(
@@ -5302,32 +5306,39 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
       ),
     );
   }
-} // <--- ESTA ES LA LLAVE QUE FALTABA
+} 
 
 class PantallaInstructivo extends StatelessWidget {
   const PantallaInstructivo({super.key});
-
   Future<void> _abrirPdf(BuildContext context) async {
-    try {
-      if (kIsWeb) {
-        // web.window.open('Instructivo.pdf', '_blank'); // Requiere el paquete web
-      } else {
-        // 📱 Solución móvil:
-        final Uri url = Uri.parse('asset:///assets/Instructivo.pdf');
-        if (await canLaunchUrl(url)) {
-          await launchUrl(url, mode: LaunchMode.externalApplication);
-        } else {
-          throw 'No se pudo abrir el PDF';
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
+  try {
+    if (kIsWeb) {
+      // SOLUCIÓN PARA WEB:
+      // En la web no puedes "abrir" archivos del sistema, pero sí puedes intentar navegar a ellos.
+      // Esto intentará abrir el PDF en una nueva pestaña del navegador.
+      await launchUrl(Uri.parse('assets/Instructivo.pdf'));
+    } else {
+      // SOLUCIÓN PARA MÓVIL (Lo que ya tenías y funciona bien):
+      final assetPath = 'assets/Instructivo.pdf';
+      final byteData = await rootBundle.load(assetPath);
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/Instructivo.pdf');
+      await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+      
+      final result = await OpenFilex.open(file.path);
+      if (result.type != ResultType.done) {
+        throw 'No se pudo abrir el archivo: ${result.message}';
       }
     }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al abrir PDF: $e"), backgroundColor: Colors.red),
+      );
+    }
   }
+}
+  
 
   @override
   Widget build(BuildContext context) {
@@ -5335,7 +5346,11 @@ class PantallaInstructivo extends StatelessWidget {
       appBar: AppBar(title: const Text("Instructivo de Examen")),
       body: Center(
         child: ElevatedButton.icon(
-          onPressed: () => _abrirPdf(context),
+          onPressed: () {
+            // ¡AQUÍ ESTÁ EL CAMBIO!
+            // Ya no usamos launchUrl, llamamos a TU función:
+            _abrirPdf(context); 
+          },
           icon: const Icon(Icons.picture_as_pdf),
           label: const Text("Abrir PDF"),
         ),
@@ -5790,7 +5805,7 @@ class _QuizPageState extends State<QuizPage> {
     final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
     final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
     final int? seleccionGuardada = respuestasUsuario[index];
-    
+    final TransformationController _transformationController = TransformationController();
     return SingleChildScrollView(
       padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
       child: Column(
@@ -5825,16 +5840,32 @@ class _QuizPageState extends State<QuizPage> {
                     // Usamos un Stack para poner el icono sobre la imagen
                     child: Stack(
                       children: [
-                        InteractiveViewer(
-                          panEnabled: true,
-                          boundaryMargin: const EdgeInsets.all(20),
-                          minScale: 1.0,
-                          maxScale: 4.0,
-                          child: Image.asset(
-                            ruta,
-                            height: 400,
-                            filterQuality: FilterQuality.high,
-                            fit: BoxFit.contain,
+                        ZoomableImage(imagePath: ruta),
+                        // 1. Asegúrate de tener este controlador en tu clase Sta
+                          // 2. Y este método para limpiar memoria al salir (importante)
+                        
+
+                          // 3. Así debe quedar tu widget en el build:
+                        GestureDetector(
+                          onDoubleTap: () {
+                            // Si la imagen ya tiene zoom, resetea. Si no, haz zoom.
+                            if (_transformationController.value != Matrix4.identity()) {
+                              _transformationController.value = Matrix4.identity();
+                            } else {
+                              // Zoom de 2.0x al centro
+                              _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+                            }
+                          },
+                          child: InteractiveViewer(
+                            transformationController: _transformationController,
+                            panEnabled: true,
+                            scaleEnabled: true,
+                            minScale: 1.0,  // No deja hacer zoom hacia afuera (haciéndola más pequeña)
+                            maxScale: 4.0,  // Zoom máximo de 4 veces
+                            child: Image.asset(
+                              ruta,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                         // Aquí añadimos el icono en la esquina superior derecha
@@ -6087,6 +6118,45 @@ class _QuizPageState extends State<QuizPage> {
             child: const Text("Volver al Inicio"),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ZoomableImage extends StatefulWidget {
+  final String imagePath;
+  const ZoomableImage({super.key, required this.imagePath});
+
+  @override
+  State<ZoomableImage> createState() => _ZoomableImageState();
+}
+
+class _ZoomableImageState extends State<ZoomableImage> {
+  final TransformationController _transformationController = TransformationController();
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onDoubleTap: () {
+        if (_transformationController.value != Matrix4.identity()) {
+          _transformationController.value = Matrix4.identity();
+        } else {
+          _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+        }
+      },
+      child: InteractiveViewer(
+        transformationController: _transformationController,
+        panEnabled: true,
+        scaleEnabled: true,
+        minScale: 1.0,
+        maxScale: 4.0,
+        child: Image.asset(widget.imagePath, fit: BoxFit.contain),
       ),
     );
   }
