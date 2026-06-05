@@ -4799,7 +4799,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-
+  
   Future<void> _validarYContinuar() async {
     try {
       // Buscamos al usuario en Firebase por el nombre que quedó guardado
@@ -5781,6 +5781,9 @@ class _QuizPageState extends State<QuizPage> {
                 _buildMenuDesplazableNumeros(), // Menú superior deslizable
                 Expanded(
                   child: PageView.builder(
+                    physics: _scrollBloqueado 
+                    ? const NeverScrollableScrollPhysics() 
+                    : const AlwaysScrollableScrollPhysics(),
                     controller: _pageController,
                     onPageChanged: _onPageChanged,
                     itemCount: preguntas.length,
@@ -5856,66 +5859,77 @@ class _QuizPageState extends State<QuizPage> {
       ),
     );
   }
-
+  bool _scrollBloqueado = false;  
+  // Renderiza el contenido específico de cada pregunta dentro del PageView
   // Renderiza el contenido específico de cada pregunta dentro del PageView
   Widget buildQuizPageContent(int index) {
-  final pregunta = preguntas[index];
-  final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
-  final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
-  final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
-  final int? seleccionGuardada = respuestasUsuario[index];
-  print("Renderizando pregunta $index");
-
-  return SingleChildScrollView(
-    padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
-    child: Column(
-      children: [
-        LinearProgressIndicator(
-          value: (index + 1) / preguntas.length,
-          backgroundColor: Colors.grey.shade200,
-          color: Colors.orange,
-          minHeight: 6,
-        ),
-        const SizedBox(height: 25),
-        Card(
-          elevation: 10,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Text(
-              _formatearTextoPregunta(pregunta['texto'], index),
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
-              textAlign: TextAlign.center,
+    final pregunta = preguntas[index];
+    final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
+    final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
+    final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
+    final int? seleccionGuardada = respuestasUsuario[index];
+    
+    return SingleChildScrollView(
+      // ¡AQUÍ ESTÁ EL CAMBIO! Bloquea el scroll vertical (arriba/abajo) cuando el zoom está activo
+      physics: _scrollBloqueado 
+          ? const NeverScrollableScrollPhysics() 
+          : const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
+      child: Column(
+        children: [
+          LinearProgressIndicator(
+            value: (index + 1) / preguntas.length,
+            backgroundColor: Colors.grey.shade200,
+            color: Colors.orange,
+            minHeight: 6,
+          ),
+          const SizedBox(height: 25),
+          Card(
+            elevation: 10,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                _formatearTextoPregunta(pregunta['texto'], index),
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        
-        // AQUÍ ESTÁ LA CORRECCIÓN: Todo es mucho más simple ahora
-        if (pregunta.containsKey('imagenes'))
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              children: (pregunta['imagenes'] as List<String>).map((ruta) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 15.0),
-                  child: ZoomableImage(imagePath: ruta),
-                );
-              }).toList(),
+          const SizedBox(height: 20),
+          
+          // Carga de imágenes corregida con su ZoomableImage
+          if (pregunta.containsKey('imagenes'))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                children: (pregunta['imagenes'] as List<String>).map((ruta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 15.0),
+                    child: ZoomableImage(
+                      imagePath: ruta,
+                      onZoomChanged: (estaHabilitado) {
+                        setState(() {
+                          _scrollBloqueado = estaHabilitado;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
 
-        ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes], mostrarSolucion, seleccionGuardada)),
-        
-        if (mostrarSolucion)
-          KeyedSubtree(
-            key: ValueKey("explicacion_$index"),
-            child: buildExplicacion(pregunta['explicacion'] ?? ""),
-          ),
-      ],
-    ),
-  );
-}
+          ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes], mostrarSolucion, seleccionGuardada)),
+          
+          if (mostrarSolucion)
+            KeyedSubtree(
+              key: ValueKey("explicacion_$index"),
+              child: buildExplicacion(pregunta['explicacion'] ?? ""),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget buildBotonRespuesta(int index, Map<String, dynamic> res, bool mostrarSolucion, int? seleccionGuardada) {
     bool esCorrecta = res['puntos'] == 1;
@@ -6136,84 +6150,80 @@ class _QuizPageState extends State<QuizPage> {
     );
   }
 }
+
+
 class ZoomableImage extends StatefulWidget {
   final String imagePath;
-  const ZoomableImage({super.key, required this.imagePath});
+  final Function(bool) onZoomChanged;
+
+  const ZoomableImage({
+    super.key, 
+    required this.imagePath, 
+    required this.onZoomChanged
+  });
 
   @override
-  State<ZoomableImage> createState() => _ZoomableImageState(); // Debe coincidir con esto
+  State<ZoomableImage> createState() => _ZoomableImageState();
 }
-
 
 class _ZoomableImageState extends State<ZoomableImage> {
   final TransformationController _transformationController = TransformationController();
-  bool _zoomHabilitado = false; // Este controla TODO
+  bool _zoomHabilitado = false;
+  
 
   @override
   Widget build(BuildContext context) {
-    // Usamos un Container con altura fija o AspectRatio para asegurar visibilidad
-    return Container(
-      height: 300, // Altura fija para que la imagen siempre tenga espacio
-      width: double.infinity,
-      child: Stack(
-        children: [
-          // 1. EL VISOR (Solo reacciona si _zoomHabilitado es true)
-          GestureDetector(
-            onDoubleTap: () {
-              if (!mounted) return;
+    // Al quitar el Container de altura fija, el Stack se adapta al tamaño de la imagen
+    return Stack(
+      alignment: Alignment.topRight, // Esto ancla el botón a la esquina superior derecha
+      children: [
+        GestureDetector(
+          onDoubleTap: () {
+            setState(() {
+              _zoomHabilitado = !_zoomHabilitado;
+              widget.onZoomChanged(_zoomHabilitado);
+              
+              if (!_zoomHabilitado) {
+                _transformationController.value = Matrix4.identity();
+              }
+            });
+          },
+          child: InteractiveViewer(
+            transformationController: _zoomHabilitado ? _transformationController : null,
+            // AQUÍ ESTÁ LA MAGIA: Solo se mueve y hace zoom si está habilitado
+            panEnabled: _zoomHabilitado, 
+            scaleEnabled: _zoomHabilitado,
+            minScale: 1.0,
+            maxScale: 3.0,
+            child: Image.asset(widget.imagePath, fit: BoxFit.contain),
+          ),
+        ),
+        
+        // Etiqueta informativa pegada a la imagen
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () { 
               setState(() {
-                _zoomHabilitado = !_zoomHabilitado;
-                if (!_zoomHabilitado) {
-                  _transformationController.value = Matrix4.identity();
-                }
+                _zoomHabilitado = false;
+                widget.onZoomChanged(false);
+                _transformationController.value = Matrix4.identity();
               });
             },
-            child: InteractiveViewer(
-              transformationController: _zoomHabilitado ? _transformationController : null,
-              panEnabled: _zoomHabilitado,   // Solo se mueve si está habilitado
-              scaleEnabled: _zoomHabilitado, // Solo hace zoom si está habilitado
-              minScale: 1.0,
-              maxScale: 3.0,
-              constrained: true, // Esto ayuda a que no se pierda la imagen
-              child: Image.asset(
-                widget.imagePath,
-                fit: BoxFit.contain,
-                width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _zoomHabilitado ? Colors.red.withOpacity(0.8) : Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _zoomHabilitado ? "Presione para desactivar" : "Doble click para zoom",
+                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-
-          // 2. EL ICONO Y EL MENSAJE (Encima de la imagen)
-          Positioned(
-            right: 9,
-            top: 9,
-            child: IgnorePointer( // Esto hace que el click pase de largo al GestureDetector de abajo
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _zoomHabilitado ? Colors.green.withOpacity(0.8) : Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _zoomHabilitado ? Icons.zoom_in : Icons.zoom_out_map,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _zoomHabilitado ? 'Zoom Habilitado' : 'Doble click para habilitar zoom',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
