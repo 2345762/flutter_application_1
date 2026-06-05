@@ -8,14 +8,14 @@ import 'firebase_options.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import 'dart:io' if (dart.library.io) 'dart:io';
 
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
@@ -4917,7 +4917,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     );
   }
 }
+Future<void> cerrarSesion(BuildContext context) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  
+  // 1. Obtener el ID del dispositivo actual para removerlo de Firebase
+  String? deviceId = prefs.getString('device_local_id');
+  String? userName = prefs.getString('userName');
 
+  if (deviceId != null && userName != null) {
+    try {
+      // 2. Buscar el documento del usuario para remover el dispositivo
+      var query = await FirebaseFirestore.instance
+          .collection("Códigos_válidos")
+          .where("quien entro", isEqualTo: userName)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        var docRef = query.docs.first.reference;
+        List<dynamic> dispositivos = List.from(query.docs.first.data()['dispositivos_activos'] ?? []);
+        
+        // 3. Remover el ID del dispositivo
+        dispositivos.remove(deviceId);
+        
+        // 4. Actualizar Firebase
+        await docRef.update({
+          'dispositivos_activos': dispositivos,
+          // Si ya no quedan dispositivos, puedes marcar en_uso como false
+          'en_uso': dispositivos.isNotEmpty, 
+        });
+      }
+    } catch (e) {
+      print("Error al limpiar dispositivo en Firebase: $e");
+    }
+  }
+
+  // 5. Limpiar localmente
+  await prefs.clear();
+  
+  // 6. Redirigir al Login
+  if (context.mounted) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+    );
+  }
+}
 // 3. PANTALLA DE LOGIN
 class MiPantallaLogin extends StatefulWidget {
   const MiPantallaLogin({super.key});
@@ -4970,101 +5014,109 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
   }
   
   Future<void> ingresarApp() async {
-    if (_cargando) return;
-    String nombre = _nombreController.text.trim();
-    String codigo = _codigoController.text.trim();
+  if (_cargando) return;
+  String nombre = _nombreController.text.trim();
+  String codigo = _codigoController.text.trim();
 
-    if (nombre.isEmpty || codigo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes poner nombre y código")),
-      );
-      return;
-    }
-    
-    setState(() => _cargando = true);
-    
-    try {
-      Map<String, String> infoDisp = await _obtenerInfoDispositivo();
-      String miIdDispositivo = infoDisp['id']!;
-      String miNombreDispositivo = infoDisp['nombre']!;
+  if (nombre.isEmpty || codigo.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Debes poner nombre y código")),
+    );
+    return;
+  }
 
-      var docSnap = await FirebaseFirestore.instance
-          .collection("Códigos_válidos")
-          .doc(codigo)
-          .get()
-          .timeout(const Duration(seconds: 10));
-          
-      if (docSnap.exists) {
-        Map<String, dynamic> data = docSnap.data() as Map<String, dynamic>;
-        
-        // --- 1. VERIFICACIÓN DE REVOCACIÓN ---
-        bool estaHabilitado = data['habilitado'] ?? true;
-        if (!estaHabilitado) {
-          throw ("Tu acceso ha sido revocado. Comunícate con la administración.");
-        }
+  setState(() => _cargando = true);
 
-        bool enUso = data['en_uso'] ?? false;
-        String? usuarioAsignado = data['quien entro'];
-        List<dynamic> dispositivosActivos = data['dispositivos_activos'] ?? [];
-        
-        if (enUso && usuarioAsignado != nombre) {
-          throw ("Este código ya está vinculado a otro usuario.");
-        }
+  try {
+    Map<String, String> infoDisp = await _obtenerInfoDispositivo();
+    String miIdDispositivo = infoDisp['id']!;
+    String miNombreDispositivo = infoDisp['nombre']!;
 
-        // --- 2. LÍMITE DE DISPOSITIVOS ---
-        if (!dispositivosActivos.contains(miIdDispositivo)) {
-          if (dispositivosActivos.length >= 2) {
+    var docSnap = await FirebaseFirestore.instance
+        .collection("Códigos_válidos")
+        .doc(codigo)
+        .get()
+        .timeout(const Duration(seconds: 10));
+
+    if (docSnap.exists) {
+      Map<String, dynamic> data = docSnap.data() as Map<String, dynamic>;
+
+      // --- 1. VERIFICACIÓN DE REVOCACIÓN ---
+      bool estaHabilitado = data['habilitado'] ?? true;
+      if (!estaHabilitado) {
+        throw ("Tu acceso ha sido revocado. Comunícate con la administración.");
+      }
+
+      bool enUso = data['en_uso'] ?? false;
+      String? usuarioAsignado = data['quien entro'];
+      List<dynamic> dispositivosActivos = List.from(data['dispositivos_activos'] ?? []);
+
+      if (enUso && usuarioAsignado != nombre) {
+        throw ("Este código ya está vinculado a otro usuario.");
+      }
+
+      // --- 2. LÍMITE DE DISPOSITIVOS ---
+      if (!dispositivosActivos.contains(miIdDispositivo)) {
+        if (dispositivosActivos.length >= 2) {
+          if (usuarioAsignado == nombre) {
+            dispositivosActivos.removeAt(0); // Liberar espacio para el dueño
+          } else {
             throw ("Has iniciado sesión en demasiados dispositivos. Límite máximo: 2.");
           }
-          dispositivosActivos.add(miIdDispositivo);
         }
-
-        var usuarioQuery = await FirebaseFirestore.instance
-            .collection("Códigos_válidos")
-            .where("quien entro", isEqualTo: nombre)
-            .get();
-            
-        if (usuarioQuery.docs.isNotEmpty) {
-          if (usuarioQuery.docs.first.id != codigo) {
-            throw ("Ya tienes un código asignado. Debes usar el código original.");
-          }
-        }
-
-        await docSnap.reference.update({
-          'en_uso': true,
-          'quien entro': nombre,
-          'fecha_uso': FieldValue.serverTimestamp(),
-          'dispositivos_activos': dispositivosActivos,
-          'ultimo_dispositivo_usado': miNombreDispositivo,
-        });
-        
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        if (_recordarme) {
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userName', nombre);
-        } else {
-          await prefs.setBool('isLoggedIn', false);
-          await prefs.remove('userName');
-        }
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WelcomeScreen(nombre: nombre)),
-          );
-        }
-      } else {
-        throw("El código no existe.");
+        dispositivosActivos.add(miIdDispositivo);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _cargando = false);
+
+      // --- 3. VERIFICACIÓN DE OTROS CÓDIGOS ---
+      var usuarioQuery = await FirebaseFirestore.instance
+          .collection("Códigos_válidos")
+          .where("quien entro", isEqualTo: nombre)
+          .get();
+
+      if (usuarioQuery.docs.isNotEmpty) {
+        if (usuarioQuery.docs.first.id != codigo) {
+          throw ("Ya tienes un código asignado. Debes usar el código original.");
+        }
+      }
+
+      // --- 4. ACTUALIZACIÓN EN FIREBASE ---
+      await docSnap.reference.update({
+        'en_uso': true,
+        'quien entro': nombre,
+        'fecha_uso': FieldValue.serverTimestamp(),
+        'dispositivos_activos': dispositivosActivos,
+        'ultimo_dispositivo_usado': miNombreDispositivo,
+      });
+
+      // --- 5. NAVEGACIÓN Y SESIÓN ---
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (_recordarme) {
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userName', nombre);
+      } else {
+        await prefs.setBool('isLoggedIn', false);
+        await prefs.remove('userName');
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => WelcomeScreen(nombre: nombre)),
+        );
+      }
+    } else {
+      throw ("El código no existe.");
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _cargando = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -5306,26 +5358,33 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
       ),
     );
   }
-} 
 
+}
 class PantallaInstructivo extends StatelessWidget {
   const PantallaInstructivo({super.key});
   Future<void> _abrirPdf(BuildContext context) async {
   try {
-    if (kIsWeb) {
-      // SOLUCIÓN PARA WEB:
-      // En la web no puedes "abrir" archivos del sistema, pero sí puedes intentar navegar a ellos.
-      // Esto intentará abrir el PDF en una nueva pestaña del navegador.
-      await launchUrl(Uri.parse('assets/Instructivo.pdf'));
+      if (kIsWeb) {
+    // Al estar en la carpeta 'web', la ruta es relativa a la raíz del sitio.
+    // Si lo pusiste en 'web/Instructivo.pdf':
+    final url = Uri.base.resolve('Instructivo.pdf'); 
+    
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, webOnlyWindowName: '_blank');
     } else {
-      // SOLUCIÓN PARA MÓVIL (Lo que ya tenías y funciona bien):
+      throw 'No se pudo abrir el PDF';
+    }
+  } else {
+      // Lógica para Móvil (Android/iOS)
       final assetPath = 'assets/Instructivo.pdf';
       final byteData = await rootBundle.load(assetPath);
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/Instructivo.pdf');
+      
       await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
       
       final result = await OpenFilex.open(file.path);
+      
       if (result.type != ResultType.done) {
         throw 'No se pudo abrir el archivo: ${result.message}';
       }
@@ -5333,7 +5392,7 @@ class PantallaInstructivo extends StatelessWidget {
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al abrir PDF: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -5800,108 +5859,63 @@ class _QuizPageState extends State<QuizPage> {
 
   // Renderiza el contenido específico de cada pregunta dentro del PageView
   Widget buildQuizPageContent(int index) {
-    final pregunta = preguntas[index];
-    final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
-    final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
-    final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
-    final int? seleccionGuardada = respuestasUsuario[index];
-    final TransformationController _transformationController = TransformationController();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
-      child: Column(
-        children: [
-          LinearProgressIndicator(
-            value: (index + 1) / preguntas.length,
-            backgroundColor: Colors.grey.shade200,
-            color: Colors.orange,
-            minHeight: 6,
-          ),
-          const SizedBox(height: 25),
-          Card(
-            elevation: 10,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Text(
-                _formatearTextoPregunta(pregunta['texto'], index),
-                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
-                textAlign: TextAlign.center,
-              ),
+  final pregunta = preguntas[index];
+  final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
+  final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
+  final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
+  final int? seleccionGuardada = respuestasUsuario[index];
+  print("Renderizando pregunta $index");
+
+  return SingleChildScrollView(
+    padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
+    child: Column(
+      children: [
+        LinearProgressIndicator(
+          value: (index + 1) / preguntas.length,
+          backgroundColor: Colors.grey.shade200,
+          color: Colors.orange,
+          minHeight: 6,
+        ),
+        const SizedBox(height: 25),
+        Card(
+          elevation: 10,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Text(
+              _formatearTextoPregunta(pregunta['texto'], index),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
+              textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 20),
-          if (pregunta.containsKey('imagenes'))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                children: (pregunta['imagenes'] as List<String>).map((ruta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 15.0),
-                    // Usamos un Stack para poner el icono sobre la imagen
-                    child: Stack(
-                      children: [
-                        ZoomableImage(imagePath: ruta),
-                        // 1. Asegúrate de tener este controlador en tu clase Sta
-                          // 2. Y este método para limpiar memoria al salir (importante)
-                        
-
-                          // 3. Así debe quedar tu widget en el build:
-                        GestureDetector(
-                          onDoubleTap: () {
-                            // Si la imagen ya tiene zoom, resetea. Si no, haz zoom.
-                            if (_transformationController.value != Matrix4.identity()) {
-                              _transformationController.value = Matrix4.identity();
-                            } else {
-                              // Zoom de 2.0x al centro
-                              _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
-                            }
-                          },
-                          child: InteractiveViewer(
-                            transformationController: _transformationController,
-                            panEnabled: true,
-                            scaleEnabled: true,
-                            minScale: 1.0,  // No deja hacer zoom hacia afuera (haciéndola más pequeña)
-                            maxScale: 4.0,  // Zoom máximo de 4 veces
-                            child: Image.asset(
-                              ruta,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                        // Aquí añadimos el icono en la esquina superior derecha
-                        Positioned(
-                          right: 10,
-                          top: 10,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5), // Fondo oscuro semitransparente
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.zoom_in, // Puedes cambiarlo por Icons.search
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+        ),
+        const SizedBox(height: 20),
+        
+        // AQUÍ ESTÁ LA CORRECCIÓN: Todo es mucho más simple ahora
+        if (pregunta.containsKey('imagenes'))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Column(
+              children: (pregunta['imagenes'] as List<String>).map((ruta) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 15.0),
+                  child: ZoomableImage(imagePath: ruta),
+                );
+              }).toList(),
             ),
+          ),
 
-          ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes], mostrarSolucion, seleccionGuardada)),
-          if (mostrarSolucion)
-           KeyedSubtree(
+        ...List.generate(respuestas.length, (idxRes) => buildBotonRespuesta(idxRes, respuestas[idxRes], mostrarSolucion, seleccionGuardada)),
+        
+        if (mostrarSolucion)
+          KeyedSubtree(
             key: ValueKey("explicacion_$index"),
             child: buildExplicacion(pregunta['explicacion'] ?? ""),
           ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   Widget buildBotonRespuesta(int index, Map<String, dynamic> res, bool mostrarSolucion, int? seleccionGuardada) {
     bool esCorrecta = res['puntos'] == 1;
@@ -6122,41 +6136,83 @@ class _QuizPageState extends State<QuizPage> {
     );
   }
 }
-
 class ZoomableImage extends StatefulWidget {
   final String imagePath;
   const ZoomableImage({super.key, required this.imagePath});
 
   @override
-  State<ZoomableImage> createState() => _ZoomableImageState();
+  State<ZoomableImage> createState() => _ZoomableImageState(); // Debe coincidir con esto
 }
+
 
 class _ZoomableImageState extends State<ZoomableImage> {
   final TransformationController _transformationController = TransformationController();
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
+  bool _zoomHabilitado = false; // Este controla TODO
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onDoubleTap: () {
-        if (_transformationController.value != Matrix4.identity()) {
-          _transformationController.value = Matrix4.identity();
-        } else {
-          _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
-        }
-      },
-      child: InteractiveViewer(
-        transformationController: _transformationController,
-        panEnabled: true,
-        scaleEnabled: true,
-        minScale: 1.0,
-        maxScale: 4.0,
-        child: Image.asset(widget.imagePath, fit: BoxFit.contain),
+    // Usamos un Container con altura fija o AspectRatio para asegurar visibilidad
+    return Container(
+      height: 300, // Altura fija para que la imagen siempre tenga espacio
+      width: double.infinity,
+      child: Stack(
+        children: [
+          // 1. EL VISOR (Solo reacciona si _zoomHabilitado es true)
+          GestureDetector(
+            onDoubleTap: () {
+              if (!mounted) return;
+              setState(() {
+                _zoomHabilitado = !_zoomHabilitado;
+                if (!_zoomHabilitado) {
+                  _transformationController.value = Matrix4.identity();
+                }
+              });
+            },
+            child: InteractiveViewer(
+              transformationController: _zoomHabilitado ? _transformationController : null,
+              panEnabled: _zoomHabilitado,   // Solo se mueve si está habilitado
+              scaleEnabled: _zoomHabilitado, // Solo hace zoom si está habilitado
+              minScale: 1.0,
+              maxScale: 3.0,
+              constrained: true, // Esto ayuda a que no se pierda la imagen
+              child: Image.asset(
+                widget.imagePath,
+                fit: BoxFit.contain,
+                width: double.infinity,
+              ),
+            ),
+          ),
+
+          // 2. EL ICONO Y EL MENSAJE (Encima de la imagen)
+          Positioned(
+            right: 9,
+            top: 9,
+            child: IgnorePointer( // Esto hace que el click pase de largo al GestureDetector de abajo
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _zoomHabilitado ? Colors.green.withOpacity(0.8) : Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _zoomHabilitado ? Icons.zoom_in : Icons.zoom_out_map,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _zoomHabilitado ? 'Zoom Habilitado' : 'Doble click para habilitar zoom',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
