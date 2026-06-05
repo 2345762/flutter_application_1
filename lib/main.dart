@@ -9,8 +9,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:web/web.dart' as web;
-
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:ui';
+import 'package:flutter_animate/flutter_animate.dart';
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
 // =============================================================
@@ -4626,28 +4628,128 @@ final List<Map<String, Object>> poolreglamentacion = [
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
-    
-    // Inicialización con tiempo límite para evitar bloqueos eternos
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform).timeout(const Duration(seconds: 10)); 
-    
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
+        .timeout(const Duration(seconds: 10));
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     String userName = prefs.getString('userName') ?? "";
+    
+    // --- NUEVA LÓGICA: ¿Es la primera vez que abre la app? ---
+    bool esPrimeraVez = prefs.getBool('esPrimeraVez') ?? true;
 
-    runApp(QuizApp(
-      startWidget: isLoggedIn  
-        ? WelcomeScreen(nombre: userName)
-        : const MiPantallaLogin()
-    ));
+    Widget pantallaInicial;
+    if (esPrimeraVez) {
+      pantallaInicial = const PantallaPrimeraVez();
+    } else if (isLoggedIn) {
+      pantallaInicial = WelcomeScreen(nombre: userName);
+    } else {
+      pantallaInicial = const MiPantallaLogin();
+    }
+
+    runApp(QuizApp(startWidget: pantallaInicial));
   } catch (e) {
-    // Si falla Firebase o el sistema, arranca una versión segura de la app
-    runApp(MaterialApp(
+    runApp(const MaterialApp(
       home: Scaffold(
         body: Center(child: Text("Error al iniciar: Verifica tu conexión")),
       ),
     ));
   }
 }
+
+class PantallaPrimeraVez extends StatefulWidget {
+  const PantallaPrimeraVez({super.key});
+
+  @override
+  State<PantallaPrimeraVez> createState() => _PantallaPrimeraVezState();
+}
+
+class _PantallaPrimeraVezState extends State<PantallaPrimeraVez> {
+  Future<void> _comenzar() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('esPrimeraVez', false); // Marcamos que ya entró
+    
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 800),
+          pageBuilder: (_, __, ___) => const MiPantallaLogin(),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Usamos MediaQuery para que la imagen sea grande pero proporcional
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      body: Stack(
+        children: [
+          // CAPA 1: La imagen (Aumenta el 0.7 para hacerla más grande)
+          Positioned(
+            top: -300,
+            left: 0,
+            right: 0,
+            height: screenHeight * 1.4, 
+            child: Image.asset(
+              'assets/imagen_bienvenida.png',
+              filterQuality: FilterQuality.high, // Mantenemos tu asset
+              fit: BoxFit.contain,
+            ),
+          ),
+
+          // CAPA 2: El texto y botón (Fijos abajo)
+          Positioned(
+            bottom: 60,
+            left: 20,
+            right: 20,
+            child: Column(
+              children: [
+                const Text(
+                  "Bienvenido a la APP EOV", // Tu frase
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  "Una herramienta creada para acompañarte en cada etapa de tu formación como EOV.", // Tu frase motivadora
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _comenzar,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0091D5),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: const Text("Comenzar", style: TextStyle(fontSize: 18, color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+                      
 
 class QuizApp extends StatelessWidget {
   final Widget startWidget;
@@ -4661,7 +4763,7 @@ class QuizApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: startWidget, // 
+      home: startWidget, 
     );
   }
 }
@@ -4670,18 +4772,15 @@ class QuizApp extends StatelessWidget {
 
 String formatearNombreDesdeCorreo(String correo) {
   // 1. Obtener la parte antes del primer punto o la arroba
-  // Esto divide el correo en el primer punto que encuentre
   String partePrincipal = correo.split('.').first;
   
-  // 2. Por si el correo no tiene punto (ej: usuario@gmail.com), 
-  // nos aseguramos de tomar lo que esté antes de la arroba
+  // 2. Por si el correo no tiene punto (ej: usuario@gmail.com)
   if (!correo.contains('.')) {
     partePrincipal = correo.split('@').first;
   }
 
   // 3. Poner la primera letra en mayúscula y el resto en minúscula
   if (partePrincipal.isEmpty) return "Usuario";
-  
   return partePrincipal[0].toUpperCase() + partePrincipal.substring(1).toLowerCase();
 }
 
@@ -4697,6 +4796,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
+  Future<void> _validarYContinuar() async {
+    try {
+      // Buscamos al usuario en Firebase por el nombre que quedó guardado
+      var query = await FirebaseFirestore.instance
+          .collection("Códigos_válidos")
+          .where("quien entro", isEqualTo: widget.nombre)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        bool estaHabilitado = query.docs.first.data()['habilitado'] ?? true;
+
+        // Si lo bloqueaste en Firebase, le borramos la sesión y lo expulsamos
+        if (!estaHabilitado) {
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', false);
+          await prefs.remove('userName');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Tu acceso ha sido revocado. Comunícate con la administración."),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+            );
+          }
+          return; // Detenemos la función para que no avance al MainMenu
+        }
+      }
+    } catch (e) {
+      // Si no hay internet, ignoramos el error para no dejar la app pegada.
+    }
+
+    // Si está habilitado (o falló la red), lo dejamos pasar al menú principal
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainMenu()), 
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -4704,30 +4848,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       vsync: this,
       duration: const Duration(seconds: 3), 
     );
-
+    
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn), // 
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn), 
     );
+    
+    // Cuando termine tu animación de 3 segundos, validamos en Firebase
     _controller.addStatusListener((status) {
-    if (status == AnimationStatus.completed) {
-      // Solo navega cuando la animación termina realmente
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainMenu()),
-      );
-    }
-  });
-    _controller.forward();
-
-    // Transición automática al menú tras la animación 
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => MainMenu()),
-        );
+      if (status == AnimationStatus.completed) {
+        _validarYContinuar();
       }
     });
+    
+    _controller.forward();
   }
 
   @override
@@ -4792,11 +4925,46 @@ class MiPantallaLogin extends StatefulWidget {
 class _MiPantallaLoginState extends State<MiPantallaLogin> {
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _codigoController = TextEditingController();
-
+  
   // Color azul del fondo de la imagen
-  final Color azulFondo = const Color.fromARGB(255, 34, 70, 110); 
+  final Color azulFondo = const Color.fromARGB(255, 34, 70, 110);
   bool _cargando = false;
   bool _recordarme = false;
+  
+  Future<Map<String, String>> _obtenerInfoDispositivo() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? deviceId = prefs.getString('device_local_id');
+    if (deviceId == null) {
+      deviceId = "disp_${DateTime.now().millisecondsSinceEpoch}";
+      await prefs.setString('device_local_id', deviceId);
+    }
+
+    String deviceName = "Dispositivo Desconocido";
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    
+    try {
+      if (kIsWeb) {
+        WebBrowserInfo webInfo = await deviceInfo.webBrowserInfo;
+        deviceName = "Web - ${webInfo.browserName.name}"; 
+      } else {
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+          deviceName = "Android - ${androidInfo.model}";
+        } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+          IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+          deviceName = "iOS - ${iosInfo.name}";
+        } else if (defaultTargetPlatform == TargetPlatform.windows) {
+          WindowsDeviceInfo windowsInfo = await deviceInfo.windowsInfo;
+          deviceName = "Windows - ${windowsInfo.computerName}";
+        }
+      }
+    } catch (e) {
+      deviceName = "Dispositivo Genérico";
+    }
+
+    return {'id': deviceId, 'nombre': deviceName};
+  }
+  
   Future<void> ingresarApp() async {
     if (_cargando) return;
     String nombre = _nombreController.text.trim();
@@ -4808,26 +4976,51 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
       );
       return;
     }
+    
     setState(() => _cargando = true);
+    
     try {
+      Map<String, String> infoDisp = await _obtenerInfoDispositivo();
+      String miIdDispositivo = infoDisp['id']!;
+      String miNombreDispositivo = infoDisp['nombre']!;
+
       var docSnap = await FirebaseFirestore.instance
-      .collection("Códigos_válidos")
-      .doc(codigo)
-      .get()
-      .timeout(const Duration(seconds: 10));      
+          .collection("Códigos_válidos")
+          .doc(codigo)
+          .get()
+          .timeout(const Duration(seconds: 10));
+          
       if (docSnap.exists) {
         Map<String, dynamic> data = docSnap.data() as Map<String, dynamic>;
-        bool enUso = data['en_uso'] ?? false; 
-        String? usuarioAsignado = data['quien entro']; 
+        
+        // --- 1. VERIFICACIÓN DE REVOCACIÓN ---
+        bool estaHabilitado = data['habilitado'] ?? true;
+        if (!estaHabilitado) {
+          throw ("Tu acceso ha sido revocado. Comunícate con la administración.");
+        }
+
+        bool enUso = data['en_uso'] ?? false;
+        String? usuarioAsignado = data['quien entro'];
+        List<dynamic> dispositivosActivos = data['dispositivos_activos'] ?? [];
+        
         if (enUso && usuarioAsignado != nombre) {
           throw ("Este código ya está vinculado a otro usuario.");
         }
+
+        // --- 2. LÍMITE DE DISPOSITIVOS ---
+        if (!dispositivosActivos.contains(miIdDispositivo)) {
+          if (dispositivosActivos.length >= 2) {
+            throw ("Has iniciado sesión en demasiados dispositivos. Límite máximo: 2.");
+          }
+          dispositivosActivos.add(miIdDispositivo);
+        }
+
         var usuarioQuery = await FirebaseFirestore.instance
             .collection("Códigos_válidos")
             .where("quien entro", isEqualTo: nombre)
             .get();
+            
         if (usuarioQuery.docs.isNotEmpty) {
-          // Si encontramos que el usuario ya tiene un código, validamos que sea el mismo
           if (usuarioQuery.docs.first.id != codigo) {
             throw ("Ya tienes un código asignado. Debes usar el código original.");
           }
@@ -4836,15 +5029,16 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
         await docSnap.reference.update({
           'en_uso': true,
           'quien entro': nombre,
-          'fecha_uso': FieldValue.serverTimestamp(), 
+          'fecha_uso': FieldValue.serverTimestamp(),
+          'dispositivos_activos': dispositivosActivos,
+          'ultimo_dispositivo_usado': miNombreDispositivo,
         });
-
+        
         SharedPreferences prefs = await SharedPreferences.getInstance();
         if (_recordarme) {
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('userName', nombre);
         } else {
-          
           await prefs.setBool('isLoggedIn', false);
           await prefs.remove('userName');
         }
@@ -4857,7 +5051,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
           );
         }
       } else {
-        throw("El código no existe.");        
+        throw("El código no existe.");
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4868,150 +5062,247 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    resizeToAvoidBottomInset: false,
-    backgroundColor: azulFondo,
-    body: Stack(
-      clipBehavior: Clip.none, // Usamos Stack para que el logo no "empuje" al login
-      children: [
-        // 1. EL LOGO (Posicionado arriba)
-        Positioned(
-          top: -40, // Distancia desde la parte de arriba
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A1128), // Fondo azul oscuro
+      body: Stack(
+        children: [
+          // 1. LOGO: Independiente, sin empujar al login
+          Positioned(
+            top: 40, // Ajusta este valor para subir/bajar el logo
+            left: 0,
+            right: 0,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 2000), // 1 segundo para una entrada suave
+              curve: Curves.easeOutQuad,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value, // Aparece de transparente a visible
+                  child: Transform.translate(
+                    offset: Offset(0, 20 * (1 - value)), // Se desliza 20px hacia arriba mientras aparece
+                    child: child,
+                  ),
+                );
+              },
+            child: Center( // Usamos Center para que el contenedor se ajuste al contenido
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25), // Bordes redondeados para el efecto
+                child: BackdropFilter(
+                  
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Desenfoca lo que está detrás
+                  child: Container(
+                    width: 360, 
+                    height: 120,
+                    
+                    padding: const EdgeInsets.all(20), // Espacio entre el logo y el borde
+                    decoration: BoxDecoration(
+  
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color.fromARGB(255, 219, 178, 42).withOpacity(0.2), // Luz brillante arriba a la izquierda
+                          const Color.fromARGB(255, 40, 85, 87).withOpacity(0.05), // Sombra suave abajo a la derecha
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(25),
+                      // 2. Borde con un poco más de fuerza para que resalte
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.4), 
+                        width: 1.5,
+                      ),
+                      // 3. EFECTO DE LUZ NOCTURNA (Glow)
+                      // Esto proyecta una luz difusa detrás del logo, creando el efecto de "luz en la noche"
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blueAccent.withOpacity(0.3), // Color azul para esa vibra nocturna
+                          blurRadius: 30, // Qué tan extendida es la luz
+                          spreadRadius: 5, // Qué tan lejos llega el resplandor
+                          offset: const Offset(0, 0), // Centrado para que la luz sea uniforme
+                        ),
+                      ],
+                    ),
             child: Image.asset(
-              'assets/ESCUELA_LOGO.png',
-              height: 380, // <--- Aquí tienes tu logo GRANDE
+              'assets/PRECADET_LOGO.png',
+              height: 100,
               fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
           ),
-        ),
-
-        // 2. EL CUADRO DE LOGIN (Centrado total)
-        Center(
-          child: SingleChildScrollView( // Para que no de error de espacio en pantallas chicas
-            child: Container(
-              width: 450,
-              margin: const EdgeInsets.only(top: 150, left: 30, right: 30), // Margen top para que no choque si el logo es gigante
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Iniciar sesión",
-                    style: GoogleFonts.inter(
-                      fontSize: 32,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  _buildTextField(
-                    controller: _nombreController,
-                    hint: "Tu correo institucional",
-                    icon: Icons.mail_outline,
-                  ),
-                  const SizedBox(height: 20),
-
-                  _buildTextField(
-                    controller: _codigoController,
-                    hint: "Código",
-                    icon: Icons.lock_outline,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 15),
-
-                  Row(
-                    children: [
-                      SizedBox(
-                        height: 24, width: 24,
-                        child: Checkbox(
-                          value: _recordarme,
-                          onChanged: (val) {
-                            setState(() => _recordarme = val ?? false);
-                          },
+                ),
+                ),
+                ),
+                ),
+                
+          ),
+          // 2. LOGIN: El bloque de cristal
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 50.0, end: 0.0),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, double value, child) {
+              return Transform.translate(
+                offset: Offset(0, value),
+                child: Opacity(
+                  opacity: 1 - (value / 50),
+                  child: child,
+                ),
+              );
+            },
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // --- AJUSTA ESTE VALOR PARA SUBIR O BAJAR ---
+                    // Un valor más bajo (ej. 200) acercará el login al logo
+                    const SizedBox(height:280), 
+                    
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Container(
+                          width: 400,
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.all(35),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Iniciar sesión",
+                                style: GoogleFonts.inter(
+                                  fontSize: 32,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              _buildTextField(
+                                controller: _nombreController,
+                                hint: "Tu correo institucional",
+                                icon: Icons.mail_outline,
+                                isEmail: true,
+                              ),
+                              const SizedBox(height: 20),
+                              _buildTextField(
+                                controller: _codigoController,
+                                hint: "Código",
+                                icon: Icons.lock_outline,
+                                isPassword: true,
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  Theme(
+                                    data: ThemeData(unselectedWidgetColor: Colors.white70),
+                                    child: Checkbox(
+                                      value: _recordarme,
+                                      activeColor: const Color(0xFF0091D5),
+                                      onChanged: (val) {
+                                        setState(() => _recordarme = val ?? false);
+                                      },
+                                    ),
+                                  ),
+                                  const Text("Recuérdame", style: TextStyle(color: Colors.white70)),
+                                ],
+                              ),
+                              const SizedBox(height: 30),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 55,
+                                child: ElevatedButton(
+                                  onPressed: ingresarApp,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0091D5),
+                                    foregroundColor: Colors.white,
+                                    elevation: 10,
+                                    shadowColor: const Color(0xFF0091D5).withOpacity(0.5),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                  ),
+                                  child: _cargando
+                                      ? const CircularProgressIndicator(color: Colors.white)
+                                      : const Text("LOGIN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text("Recuérdame", style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: ingresarApp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0091D5),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                      ),
-                      child: const Text("LOGIN", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // Widget auxiliar para los campos de texto con iconos
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
+    bool isEmail = false,
     bool isPassword = false,
   }) {
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05), // Fondo sutil del input
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF004481), size: 28),
+          Icon(icon, color: Colors.white70, size: 24),
           const SizedBox(width: 15),
           Expanded(
             child: TextField(
               controller: controller,
               obscureText: isPassword,
+              style: const TextStyle(color: Colors.white), // Texto escrito en blanco
+              keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.text,
+              textCapitalization: isEmail ? TextCapitalization.none : TextCapitalization.sentences,
+              inputFormatters: isEmail 
+              ? [
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    return newValue.copyWith(text: newValue.text.toLowerCase());
+                  }),
+                ] 
+              : null,
               decoration: InputDecoration(
                 hintText: hint,
                 border: InputBorder.none,
-                hintStyle: const TextStyle(color: Colors.grey),
+                hintStyle: const TextStyle(color: Colors.white38),
               ),
-
             )
           )
         ],
       ),
     );
   }
-}
+} // <--- ESTA ES LA LLAVE QUE FALTABA
 
 class PantallaInstructivo extends StatelessWidget {
   const PantallaInstructivo({super.key});
@@ -5019,9 +5310,7 @@ class PantallaInstructivo extends StatelessWidget {
   Future<void> _abrirPdf(BuildContext context) async {
     try {
       if (kIsWeb) {
-        // 🌐 Solución Web moderna (sin plugins):
-        // window.open abre el archivo directamente desde la carpeta web/
-        web.window.open('Instructivo.pdf', '_blank');
+        // web.window.open('Instructivo.pdf', '_blank'); // Requiere el paquete web
       } else {
         // 📱 Solución móvil:
         final Uri url = Uri.parse('asset:///assets/Instructivo.pdf');
@@ -5054,7 +5343,8 @@ class PantallaInstructivo extends StatelessWidget {
     );
   }
 }
-// 4. MENÚ PRINCIPAL (Aquí empieza tu código original)
+
+// 4. MENÚ PRINCIPAL 
 class MainMenu extends StatelessWidget {
   final List<Map<String, dynamic>> materias = [
     {'nombre': 'AERODINÁMICA', 'Imagen': "assets/AERODINAMICA_SIN_FONDO.png", 'pool': poolAerodinamica, 'limite': 16}, 
@@ -5143,8 +5433,9 @@ class MainMenu extends StatelessWidget {
               // Tu GridView original envuelto en un Expanded para que convivan perfectamente
               Expanded(
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    // Lógica responsiva: Si la pantalla es más ancha que 600px (PC), usa 4 columnas. Si no (Celular), usa 2.
+                    crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
                     crossAxisSpacing: 15,
                     mainAxisSpacing: 15,
                     childAspectRatio: 0.85,
@@ -5161,16 +5452,21 @@ class MainMenu extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Transform.scale(
-                                scale: 1.35,
-                                child: Image.asset(
-                                  materia['Imagen'].toString(),
-                                  
-                                  cacheWidth: 400,
-                                  filterQuality: FilterQuality.high,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-                                ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  bool esEscritorio = constraints.maxWidth > 600;
+                                  double escala = esEscritorio ? 1.0 : 1.35;
+                                  return Transform.scale(
+                                    scale: escala,
+                                    child: Image.asset(
+                                      materia["Imagen"].toString(),
+                                      cacheWidth: 400,
+                                      filterQuality: FilterQuality.high,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                    )
+                                  );
+                                }
                               ),
                             ),
                             Padding(
@@ -5297,13 +5593,11 @@ class _QuizPageState extends State<QuizPage> {
     _cronometro = Stopwatch()..start();
     _pageController = PageController(initialPage: 0);
     _menuScrollController = ScrollController();
-    
     // Inicializamos con nulls para soportar saltos y re-navegación libre en ambos modos
     respuestasUsuario = List<int?>.filled(preguntas.length, null);
     
     if (widget.isTestMode) {
       preguntas.shuffle();
-      
     }
   }
 
@@ -5317,9 +5611,9 @@ class _QuizPageState extends State<QuizPage> {
   String _formatearTextoPregunta(String textoOriginal, int indice) {
     String limpio = textoOriginal.replaceFirst(RegExp(r'^\d+[\.\s\-]*'), '').trim();
     if (widget.isTestMode){
-      return  limpio;  
+      return limpio;
     }
-    return  "Pregunta ${indice + 1}: $limpio";
+    return "Pregunta ${indice + 1}: $limpio";
   }
 
   Color _getColorPuntaje(double porcentaje) {
@@ -5330,7 +5624,7 @@ class _QuizPageState extends State<QuizPage> {
 
   void validarRespuesta(int indice, int puntos) {
     if (respondido && !widget.isTestMode) return;
-
+    
     setState(() {
       indiceSeleccionado = indice;
       respuestasUsuario[preguntaActual] = indice;
@@ -5425,7 +5719,7 @@ class _QuizPageState extends State<QuizPage> {
     );
   }
 
-  // NUEVO: Menú horizontal superior deslizable de números
+  // Menú horizontal superior deslizable de números
   Widget _buildMenuDesplazableNumeros() {
     return Container(
       height: 65,
@@ -5436,6 +5730,7 @@ class _QuizPageState extends State<QuizPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         itemCount: preguntas.length,
         itemBuilder: (context, index) {
+          
           bool esActual = index == preguntaActual;
           bool estaRespondida = respuestasUsuario[index] != null;
 
@@ -5469,10 +5764,10 @@ class _QuizPageState extends State<QuizPage> {
                 color: colorFondo,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white, width: 1),
-                boxShadow: esActual ? [BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2))] : null,
+                boxShadow: esActual ? [const BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))] : null,
               ),
               child: Center(
-                child: Text(
+                 child: Text(
                   "${index + 1}",
                   style: TextStyle(
                     fontSize: 16, 
@@ -5495,6 +5790,7 @@ class _QuizPageState extends State<QuizPage> {
     final bool haRespondidoEstaPagina = respuestasUsuario[index] != null;
     final bool mostrarSolucion = haRespondidoEstaPagina && !widget.isTestMode;
     final int? seleccionGuardada = respuestasUsuario[index];
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
       child: Column(
@@ -5594,8 +5890,6 @@ class _QuizPageState extends State<QuizPage> {
         colorFondo = Colors.red.shade50;
         colorTexto = Colors.red.shade900;
       }
-    } else if (seleccionada) {
-      
     }
 
     return AnimatedContainer(
@@ -5606,7 +5900,7 @@ class _QuizPageState extends State<QuizPage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colorBorde, width: 2),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))
+           BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))
         ]
       ),
       child: ListTile(
@@ -5639,66 +5933,66 @@ class _QuizPageState extends State<QuizPage> {
     );
   }
 
-  // NUEVA INTERFAZ MODERNA Y ATRACTIVA DE NAVEGACIÓN
+  // INTERFAZ MODERNA Y ATRACTIVA DE NAVEGACIÓN
   Widget _buildBarraNavegacionAtractiva() {
-  final esUltimaPregunta = preguntaActual == preguntas.length - 1;
-
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -4))
-      ],
-    ),
-    child: SafeArea(
-      child: Row(
-        children: [
-          // Botón Atrás - Neumórfico / Redondeado
-          Material(
-            color: preguntaActual > 0 ? Colors.indigo.shade50 : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+    final esUltimaPregunta = preguntaActual == preguntas.length - 1;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -4))
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Botón Atrás - Neumórfico / Redondeado
+            Material(
+              color: preguntaActual > 0 ? Colors.indigo.shade50 : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(16),
-              onTap: preguntaActual > 0 ? () => _saltarAPregunta(preguntaActual - 1) : null,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Icon(
-                  Icons.arrow_back_ios_new, 
-                  size: 20, 
-                  color: preguntaActual > 0 ? Colors.indigo : Colors.grey.shade400
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: preguntaActual > 0 ? () => _saltarAPregunta(preguntaActual - 1) : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Icon(
+                    Icons.arrow_back_ios_new, 
+                    size: 20, 
+                    color: preguntaActual > 0 ? Colors.indigo : Colors.grey.shade400
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // Spacer empuja los botones hacia los extremos de forma fluida y segura sin importar el tamaño de pantalla
-          const Spacer(), 
+            
+            // Spacer empuja los botones hacia los extremos de forma fluida
+            const Spacer(), 
 
-          // Botón Principal: Siguiente o Finalizar Examen
-          ElevatedButton.icon(
-            onPressed: (!widget.isTestMode && !respondido) 
-                ? null 
-                : (esUltimaPregunta ? _finalizarQuiz : () => _saltarAPregunta(preguntaActual + 1)), 
-            style: ElevatedButton.styleFrom(
-              backgroundColor: esUltimaPregunta ? Colors.red.shade600 : Colors.indigo,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            // Botón Principal: Siguiente o Finalizar Examen
+            ElevatedButton.icon(
+              onPressed: (!widget.isTestMode && !respondido) 
+                  ? null 
+                  : (esUltimaPregunta ? _finalizarQuiz : () => _saltarAPregunta(preguntaActual + 1)), 
+              style: ElevatedButton.styleFrom(
+                backgroundColor: esUltimaPregunta ? Colors.red.shade600 : Colors.indigo,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              icon: Icon(
+                esUltimaPregunta ? Icons.check_circle_outline : Icons.arrow_forward_ios, 
+                size: 16
+              ),
+              label: Text(esUltimaPregunta ? "Terminar" : "Sig."),
             ),
-            icon: Icon(
-              esUltimaPregunta ? Icons.check_circle_outline : Icons.arrow_forward_ios, 
-              size: 16
-            ),
-            label: Text(esUltimaPregunta ? "Terminar" : "Sig."),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget buildSolucionario() {
     int puntajeFinal = 0;
@@ -5717,7 +6011,7 @@ class _QuizPageState extends State<QuizPage> {
     Color colorDinamico = _getColorPuntaje(porcentaje);
     String minutos = _tiempoFinal.inMinutes.toString().padLeft(2, '0');
     String segundos = (_tiempoFinal.inSeconds % 60).toString().padLeft(2, '0');
-
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -5758,7 +6052,7 @@ class _QuizPageState extends State<QuizPage> {
               final resp = preguntas[i]['respuestas'] as List;
               int? userIdx = i < respuestasUsuario.length ? respuestasUsuario[i] : null;
               bool correcto = userIdx != null && resp[userIdx]['puntos'] == 1;
-
+              
               return ExpansionTile(
                 leading: Icon(
                   userIdx == null 
@@ -5778,7 +6072,7 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                   )
                 ],
-              );
+               );
             },
           ),
           const SizedBox(height: 30),
