@@ -14,8 +14,11 @@ import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io' if (dart.library.io) 'dart:io';
+import 'dart:html' if (dart.library.html) 'dart:html' as html;
 
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
@@ -27,9 +30,9 @@ final List<Map<String, Object>> poolAerodinamica = [
     'texto': '1.- Si el ángulo de ataque constante y la velocidad sube al doble, la sustentación será:',
     'explicacion': r"La sustentación varía con el cuadrado de la velocidad; si la velocidad se duplica y se mantienen constantes densidad, superficie y CL, la sustentación se cuadruplica. Fuente: FAA, Pilot's Handbook of Aeronautical Knowledge, FAA-H-8083-25C, cap. 5.",
     'respuestas': [
-      {'texto': 'La misma', 'puntos': 0},
-      {'texto': 'Dos veces mayor', 'puntos': 0},
-      {'texto': 'Cuatro veces mayor', 'puntos': 1},
+      {'texto': 'A.- La misma', 'puntos': 0},
+      {'texto': 'B.- Dos veces mayor', 'puntos': 0},
+      {'texto': 'C.- Cuatro veces mayor', 'puntos': 1},
     ],
   },
   {
@@ -37,9 +40,9 @@ final List<Map<String, Object>> poolAerodinamica = [
     'explicacion': r"Al aumentar la altitud disminuye la densidad; para mantener la misma sustentación a igual ángulo de ataque se requiere mayor velocidad aérea verdadera. Fuente: FAA, Pilot's Handbook of Aeronautical Knowledge, FAA-H-8083-25C, cap. 5.",
     
     'respuestas': [
-     {'texto': 'La misma velocidad aérea verdadera y ángulo de ataque', 'puntos': 0},
-     {'texto': 'Una velocidad aérea verdadera mayor para cualquier ángulo de ataque dado', 'puntos': 1},
-     {'texto': 'Una velocidad aérea verdadera menor y un ángulo de ataque mayor.', 'puntos': 0},
+     {'texto': 'A.- La misma velocidad aérea verdadera y ángulo de ataque', 'puntos': 0},
+     {'texto': 'B.- Una velocidad aérea verdadera mayor para cualquier ángulo de ataque dado', 'puntos': 1},
+     {'texto': 'C.- Una velocidad aérea verdadera menor y un ángulo de ataque mayor.', 'puntos': 0},
       ]  
   },
   {
@@ -48,8 +51,8 @@ final List<Map<String, Object>> poolAerodinamica = [
     
     'respuestas': [
      {'texto': 'A.- Peso, factor de carga y potencia. ', 'puntos': 0},
-     {'texto': 'Una velocidad aérea verdadera mayor para cualquier ángulo de ataque dado', 'puntos': 1},
-     {'texto': 'Una velocidad aérea verdadera menor y un ángulo de ataque mayor.', 'puntos': 0},
+     {'texto': 'B.- Una velocidad aérea verdadera mayor para cualquier ángulo de ataque dado', 'puntos': 1},
+     {'texto': 'C.- Una velocidad aérea verdadera menor y un ángulo de ataque mayor.', 'puntos': 0},
       ]  
   },
   {
@@ -4919,42 +4922,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
 }
 Future<void> cerrarSesion(BuildContext context) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
-  
-  // 1. Obtener el ID del dispositivo actual para removerlo de Firebase
-  String? deviceId = prefs.getString('device_local_id');
-  String? userName = prefs.getString('userName');
 
-  if (deviceId != null && userName != null) {
-    try {
-      // 2. Buscar el documento del usuario para remover el dispositivo
-      var query = await FirebaseFirestore.instance
-          .collection("Códigos_válidos")
-          .where("quien entro", isEqualTo: userName)
-          .get();
+  // 1. Limpiamos localmente SOLO la sesión.
+  // MANTENEMOS la identidad del equipo (device_local_id) intacta en prefs
+  // y NO lo borramos de Firebase para que sea reconocido al volver a entrar.
+  await prefs.remove('isLoggedIn');
+  await prefs.remove('userName');
 
-      if (query.docs.isNotEmpty) {
-        var docRef = query.docs.first.reference;
-        List<dynamic> dispositivos = List.from(query.docs.first.data()['dispositivos_activos'] ?? []);
-        
-        // 3. Remover el ID del dispositivo
-        dispositivos.remove(deviceId);
-        
-        // 4. Actualizar Firebase
-        await docRef.update({
-          'dispositivos_activos': dispositivos,
-          // Si ya no quedan dispositivos, puedes marcar en_uso como false
-          'en_uso': dispositivos.isNotEmpty, 
-        });
-      }
-    } catch (e) {
-      print("Error al limpiar dispositivo en Firebase: $e");
-    }
-  }
-
-  // 5. Limpiar localmente
-  await prefs.clear();
-  
-  // 6. Redirigir al Login
+  // 2. Redirigir al Login
   if (context.mounted) {
     Navigator.pushReplacement(
       context,
@@ -4980,38 +4955,25 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
   bool _recordarme = false;
   
   Future<Map<String, String>> _obtenerInfoDispositivo() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString('device_local_id');
-    if (deviceId == null) {
-      deviceId = "disp_${DateTime.now().millisecondsSinceEpoch}";
-      await prefs.setString('device_local_id', deviceId);
-    }
+  DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  String idHardware = "desconocido";
+  String nombre = "Dispositivo";
 
-    String deviceName = "Dispositivo Desconocido";
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-    
-    try {
-      if (kIsWeb) {
-        WebBrowserInfo webInfo = await deviceInfo.webBrowserInfo;
-        deviceName = "Web - ${webInfo.browserName.name}"; 
-      } else {
-        if (defaultTargetPlatform == TargetPlatform.android) {
-          AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-          deviceName = "Android - ${androidInfo.model}";
-        } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-          IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-          deviceName = "iOS - ${iosInfo.name}";
-        } else if (defaultTargetPlatform == TargetPlatform.windows) {
-          WindowsDeviceInfo windowsInfo = await deviceInfo.windowsInfo;
-          deviceName = "Windows - ${windowsInfo.computerName}";
-        }
-      }
-    } catch (e) {
-      deviceName = "Dispositivo Genérico";
-    }
-
-    return {'id': deviceId, 'nombre': deviceName};
+  if (kIsWeb) {
+    idHardware = "web_${html.window.navigator.userAgent.hashCode}";
+    nombre = "Web: ${html.window.navigator.platform}";
+  } else if (Platform.isAndroid) {
+    AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+    idHardware = androidInfo.id; // ID único permanente del hardware
+    nombre = "${androidInfo.brand} ${androidInfo.model}";
+  } else if (Platform.isIOS) {
+    IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+    idHardware = iosInfo.identifierForVendor ?? "ios_unknown";
+    nombre = iosInfo.name;
   }
+
+  return {'id': idHardware, 'nombre': nombre};
+}
   
   Future<void> ingresarApp() async {
   if (_cargando) return;
@@ -5020,7 +4982,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
 
   if (nombre.isEmpty || codigo.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Debes poner nombre y código")),
+      const SnackBar(content: Text("Debes poner correo y código")),
     );
     return;
   }
@@ -5057,13 +5019,14 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
 
       // --- 2. LÍMITE DE DISPOSITIVOS ---
       if (!dispositivosActivos.contains(miIdDispositivo)) {
+        // Si entra aquí, es porque es un dispositivo NUEVO que no está en la base de datos.
+        
         if (dispositivosActivos.length >= 2) {
-          if (usuarioAsignado == nombre) {
-            dispositivosActivos.removeAt(0); // Liberar espacio para el dueño
-          } else {
-            throw ("Has iniciado sesión en demasiados dispositivos. Límite máximo: 2.");
-          }
+          // Si ya hay 2 dispositivos registrados y este es distinto, lo bloqueamos.
+          throw ("Has iniciado sesión en demasiados dispositivos. Límite máximo: 2.");
         }
+        
+        // Si hay espacio (< 2), agregamos el nuevo dispositivo a la lista.
         dispositivosActivos.add(miIdDispositivo);
       }
 
