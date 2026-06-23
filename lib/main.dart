@@ -10,15 +10,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:ui';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io' if (dart.library.io) 'dart:io';
-import 'dart:html' if (dart.library.html) 'dart:html' as html;
+
 
 // =============================================================
 // SECCIÓN DE DATOS: AQUÍ ES DONDE AGREGAS TUS PREGUNTAS
@@ -1662,6 +1659,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "31.- Aproximando a Concepción para una aproximación ILS, ¿con qué otras radioayudas deberá estar equipado el avión además del ILS?",
   "explicacion": "La carta referenciada exige VOR/DME y ADF como ayudas complementarias para cumplir la navegación hacia la alternativa. Fuente: DGAC Chile, AIP Chile Vol. II MAP, carta ILS Concepción.",
+  "imagenes": ["assets/figura31.jpeg"],
   "respuestas": [
     {"texto": "A.- Radar y VOR/DME.", "puntos": 0},
     {"texto": "B.- VOR/DME y ADF.", "puntos": 1},
@@ -1671,6 +1669,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "32.- ¿Cómo se identifica el FAF en la aproximación VOR/DME a la pista 01 de Antofagasta?",
   "explicacion": "El FAF está definido por la intersección de 5 DME con el radial 187 del VOR FAG. Fuente: DGAC Chile, AIP Chile Vol. II MAP, carta VOR/DME RWY 01 Antofagasta.",
+  "imagenes": ["assets/figura32.jpeg"],
   "respuestas": [
     {"texto": "A.- 5 DME/Radial 007 del VOR FAG.", "puntos": 0},
     {"texto": "B.- 5 DME/Radial 187 del VOR FAG.", "puntos": 1},
@@ -1680,6 +1679,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "33.- ¿Cuál es el procedimiento para iniciar la aproximación frustrada en el descenso VOR a pista 17 de Puerto Montt?",
   "explicacion": "La frustrada publicada exige ascender a 3.000 ft en el curso 168 del VOR MON y regresar con viraje derecho a la espera. Fuente: DGAC Chile, AIP Chile Vol. II MAP, carta VOR Puerto Montt.",
+  "imagenes": ["assets/figura34.jpeg"],
   "respuestas": [
     {"texto": "A.- Ascender a 3000 pies en el curso 168 del VOR MON regresando con viraje a la derecha e ingresando a circuito de espera.", "puntos": 1},
     {"texto": "B.- Ascender a 3000 pies en rumbo 168 con virajes a la izquierda.", "puntos": 0},
@@ -1689,6 +1689,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "34.- Ud. desea considerar Iquique como alternativa para Antofagasta. ¿Qué pronóstico meteorológico mínimo debe tener Iquique?",
   "explicacion": "La alternativa debe cumplir 800 ft/3,2 km para no precisión y 600 ft/3,0 km para precisión, según mínimos publicados. Fuente: DGAC Chile, AIP Chile Vol. II MAP y criterios de alternativa IFR.",
+  "imagenes": ["assets/figura35.jpeg", "assets/figura36.jpeg", "assets/figura37.png"],
   "respuestas": [
     {"texto": "A.- 800 pies con 3.2 Km y 700 pies con 1,6 Km.", "puntos": 0},
     {"texto": "B.- 800 pies/3.2 Km (no precisión) y 600 pies/3.0 Km (precisión).", "puntos": 1},
@@ -1698,6 +1699,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "35.- Un avión bimotor en Concepción sin alternativa a menos de una hora y con ILS inoperativo, los mínimos de despegue son:",
   "explicacion": "Al no cumplir condiciones para reducir mínimos, aplica el mínimo estándar de despegue para bimotor: 1,6 km. Fuente: DGAC Chile, mínimos de utilización de aeródromo y AIP Chile Vol. II MAP.",
+  "imagenes": ["assets/figura38.jpeg"],
   "respuestas": [
     {"texto": "A.- 0.8 km. de visibilidad.", "puntos": 0},
     {"texto": "B.- 1,6 km. de visibilidad.", "puntos": 1},
@@ -1707,6 +1709,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "36.- Para efectuar una aproximación VOR/DME en Concepción, además del equipo VOR/DME operativo, el avión deberá disponer de:",
   "explicacion": "Además de la navegación VOR/DME, la comunicación VHF es necesaria para coordinación ATS y cumplimiento del procedimiento. Fuente: DGAC Chile, AIP Chile Vol. II MAP, carta VOR/DME Concepción.",
+  "imagenes": ["assets/figura38.jpeg"],
   "respuestas": [
     {"texto": "A.- Equipo de comunicación VHF.", "puntos": 1},
     {"texto": "B.- Sistema de alerta de altitud.", "puntos": 0},
@@ -1716,6 +1719,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "37.- Indique qué sistema de iluminación tiene la pista 35 del aeropuerto de Puerto Montt.",
   "explicacion": "La pista 35 dispone de HIRL, luces de identificación de umbral, PAPI y sistema de aproximación con destellos, según carta de aeródromo. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Puerto Montt.",
+  "imagenes": ["assets/figura94.jpeg"],
   "respuestas": [
     {"texto": "A.- Luces de pista de alta intensidad, PAPI y luces de aproximación.", "puntos": 0},
     {"texto": "B.- Luces de pista de alta intensidad, identificación de umbral, PAPI y aproximación con destello.", "puntos": 1},
@@ -1725,6 +1729,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "38.- La altitud mínima (MDA) en el descenso VOR/DME a la pista 19 del aeropuerto de Antofagasta es:",
   "explicacion": "La MDA publicada para el procedimiento VOR/DME RWY 19 Antofagasta corresponde a 1.240 ft. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Antofagasta.",
+  "imagenes": ["assets/figura29.jpeg"],
   "respuestas": [
     {"texto": "A.- 1240 pies.", "puntos": 1},
     {"texto": "B.- 1240' (800').", "puntos": 0},
@@ -1734,6 +1739,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "39.- La altitud mínima de recepción en la aerovía V/W 200 entre CLD y ΤΟΥ es:",
   "explicacion": "La altitud mínima de recepción publicada para ese tramo de la aerovía es FL110. Fuente: DGAC Chile, AIP Chile Vol. I, ENR 3, rutas ATS.",
+  "imagenes": ["assets/figura96.jpeg"],
   "respuestas": [
     {"texto": "A.- FL 80", "puntos": 0},
     {"texto": "B.- FL 10", "puntos": 0},
@@ -1743,6 +1749,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "40.- ¿Cuál es la distancia entre Trapén y la pista para una aproximación ILS a pista 35 en Puerto Montt?",
   "explicacion": "La carta ILS RWY 35 de Puerto Montt publica 3,9 NM entre Trapén y la pista. Fuente: DGAC Chile, AIP Chile Vol. II MAP, ILS RWY 35 Puerto Montt.",
+  "imagenes": ["assets/figura97.jpeg"],
   "respuestas": [
     {"texto": "A.- 5.7 millas náuticas.", "puntos": 0},
     {"texto": "B.- 4.5 millas náuticas.", "puntos": 0},
@@ -1752,6 +1759,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "41.- Procediendo vía STAR TILGO 3 hacia La Serena, ¿cuál es la mínima altitud autorizada para cruzar BARCA?",
   "explicacion": "La STAR TILGO 3 establece 5.000 ft como altitud mínima de cruce en BARCA. Fuente: DGAC Chile, AIP Chile Vol. II MAP, STAR La Serena.",
+  "imagenes": ["assets/figura98.jpeg"],
   "respuestas": [
     {"texto": "A.- 3.000 pies.", "puntos": 0},
     {"texto": "B.- 5.000 pies.", "puntos": 1},
@@ -1761,6 +1769,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "42.- ¿Cuál es el largo de pista disponible para aterrizar en la pista 07 del aeropuerto de Punta Arenas?",
   "explicacion": "La longitud disponible de aterrizaje publicada para la pista 07 es 2.790 m. Fuente: DGAC Chile, AIP Chile Vol. II MAP, AD Punta Arenas.",
+  "imagenes": ["assets/figura99.jpeg"],
   "respuestas": [
     {"texto": "A.- 3.030 metros.", "puntos": 0},
     {"texto": "B.- 3.090 metros.", "puntos": 0},
@@ -1770,6 +1779,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "43.- Saliendo de Tobalaba vía SID PARKE 1, ¿cuál es la distancia a recorrer desde ese aeródromo hasta el VOR SCL?",
   "explicacion": "La SID PARKE 1 publica 11 NM desde Tobalaba hasta el VOR SCL. Fuente: DGAC Chile, AIP Chile Vol. II MAP, SID PARKE 1.",
+  "imagenes": ["assets/figura100.jpeg"],
   "respuestas": [
     {"texto": "A.- 9 millas náuticas.", "puntos": 0},
     {"texto": "B.- 11 millas náuticas.", "puntos": 1},
@@ -1788,6 +1798,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "45.- En la Carta de Área de Santiago, el nivel mínimo de cruce en VISEK es:",
   "explicacion": "La carta de área de Santiago publica FL130 como nivel mínimo de cruce en VISEK. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Carta de Área Santiago.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- 110", "puntos": 0},
     {"texto": "B.- 130", "puntos": 1},
@@ -1806,6 +1817,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "47.- Indique cuál es el nivel mínimo en la aerovía V/G 679 entre SNO y Quintero.",
   "explicacion": "El nivel mínimo publicado para el tramo SNO–Quintero en la aerovía V/G 679 es FL60. Fuente: DGAC Chile, AIP Chile Vol. I, ENR 3, rutas ATS.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- 180", "puntos": 0},
     {"texto": "B.- 60", "puntos": 1},
@@ -1815,6 +1827,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "48.- ¿Qué significa el símbolo representado por una P dentro de un círculo en una carta de aeropuerto?",
   "explicacion": "El símbolo P dentro de un círculo identifica una zona prohibida. Fuente: DGAC Chile, AIP Chile Vol. I, GEN 2.3, símbolos cartográficos.",
+  "imagenes": ["assets/figura102.jpeg"],
   "respuestas": [
     {"texto": "A.- Zona Prohibida.", "puntos": 1},
     {"texto": "B.- Zona de Espera.", "puntos": 0},
@@ -1824,6 +1837,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "49.- El nivel máximo permitido en la aerovía UG-551 es:",
   "explicacion": "La aerovía UG-551 pertenece a la red superior y su nivel máximo publicado es FL450. Fuente: DGAC Chile, AIP Chile Vol. I, ENR 3, rutas ATS.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- 150", "puntos": 0},
     {"texto": "B.- 450", "puntos": 1},
@@ -1833,6 +1847,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "50.- Ud. Se encuentra volando en el sector Norte del Área Terminal Santiago, ¿cuál es la frecuencia para comunicarse con el Centro de Control?",
   "explicacion": "La frecuencia publicada para el sector Norte del área terminal Santiago es 126.3 MHz. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Carta de Área Santiago.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- 128.1", "puntos": 0},
     {"texto": "B.- 126.3", "puntos": 1},
@@ -1842,6 +1857,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "51.- Las frecuencias de control de Santiago Radio están divididas en sector Norte y sector Sur. Esta delimitación se encuentra ubicada en:",
   "explicacion": "La división Norte/Sur publicada para Santiago Radio se ubica en la latitud 33°23’ S. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Carta de Área Santiago.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- El VOR AMB.", "puntos": 0},
     {"texto": "B.- La latitud 33º 22’ 34” S", "puntos": 0},
@@ -1860,6 +1876,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "53.- La posición RIBLA en la aerovía UA 306 del área terminal de Santiago, es:",
   "explicacion": "RIBLA está representada como punto de notificación no obligatorio en la carta de área. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Carta de Área Santiago.",
+  "imagenes": ["assets/figura101.png"],
   "respuestas": [
     {"texto": "A.- Un punto de notificación cuando se está siendo dirigido por radar.", "puntos": 0},
     {"texto": "B.- Un punto de notificación obligatorio.", "puntos": 0},
@@ -1869,6 +1886,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "54.- Una aeronave es autorizada para efectuar la STAR DIMAR-2 al aeropuerto Diego Aracena de Iquique, instruyéndosele que reporte la posición VAROK. Esta posición está determinada por:",
   "explicacion": "VAROK se define por 38 DME y radial 190 del VOR IQQ. Fuente: DGAC Chile, AIP Chile Vol. II MAP, STAR DIMAR-2 Iquique.",
+  "imagenes": ["assets/figura104.jpeg"],
   "respuestas": [
     {"texto": "A.- 38 MN DME del VOR IQQ.", "puntos": 0},
     {"texto": "B.- 38 MN DME del VOR IQQ y radial 010 del mismo VOR.", "puntos": 0},
@@ -1878,6 +1896,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "55.- La elevación y largo de pista del aeródromo de Los Ángeles son:",
   "explicacion": "La información publicada del aeródromo indica elevación 374 ft y pista de 1.700 m. Fuente: DGAC Chile, AIP Chile, AD Los Ángeles.",
+  "imagenes": ["assets/figura108.jpeg"],
   "respuestas": [
     {"texto": "A.- 1.700 pies y 3.740 pies respectivamente.", "puntos": 0},
     {"texto": "B.- 374 pies y 1.700 metros.", "puntos": 1},
@@ -1905,6 +1924,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "58.- El aeródromo de Pichoy tiene una pista de un largo de:",
   "explicacion": "La longitud de pista publicada para Pichoy es 2.100 m. Fuente: DGAC Chile, AIP Chile, AD Pichoy.",
+  "imagenes": ["assets/figura108.jpeg"],
   "respuestas": [
     {"texto": "A.- 590 metros.", "puntos": 0},
     {"texto": "B.- 5.900 pies.", "puntos": 0},
@@ -1923,6 +1943,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "60.- ¿Cuál es la mayor elevación de terreno contenida en la carta VOR/DME a la pista 19 de Antofagasta?",
   "explicacion": "La carta VOR/DME RWY 19 de Antofagasta muestra 5.476 ft como mayor elevación del terreno representada. Fuente: DGAC Chile, AIP Chile Vol. II MAP, Antofagasta.",
+  "imagenes": ["assets/figura29.jpeg"],
   "respuestas": [
     {"texto": "A.- 3.159 pies.", "puntos": 0},
     {"texto": "B.- 24.500 pies.", "puntos": 0},
@@ -1941,6 +1962,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "62.- El símbolo WWW colocado en la pista 07/25 de Punta Arenas, significa...",
   "explicacion": "El símbolo WWW en la carta de aeródromo corresponde a una barrera de detención. Fuente: DGAC Chile, AIP Chile Vol. I, GEN 2.3, símbolos cartográficos.",
+  "imagenes": ["assets/figura107.jpeg"],
   "respuestas": [
     {"texto": "A.- Umbral desplazado por obstáculos.", "puntos": 0},
     {"texto": "B.- Barrera de detención.", "puntos": 1},
@@ -2004,6 +2026,7 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
 {
   "texto": "69.- ¿Cuál es la altitud mínima a que se puede interceptar el GS en el descenso ILS a la pista 35 de Puerto Montt?",
   "explicacion": "La carta ILS RWY 35 de Puerto Montt publica 2.300 ft como altitud mínima para interceptar el Glide Slope. Fuente: DGAC Chile, AIP Chile Vol. II MAP, ILS RWY 35 Puerto Montt.",
+  "imagenes": ["assets/figura110.jpeg"],
   "respuestas": [
     {"texto": "A.- 3.000 pies.", "puntos": 0},
     {"texto": "B.- 2.300 pies.", "puntos": 1},
@@ -3321,7 +3344,7 @@ final List<Map<String, Object>> poolmeteorologia = [
     
     'respuestas': [
      {'texto': 'A.- 1000 millas o más a sotavento de la montaña.','puntos': 0},
-     {'texto': 'B.- 500 pies sobre la tropopausa.','puntos': 1},
+     {'texto': 'B.- 5000 pies sobre la tropopausa.','puntos': 1},
      {'texto': 'C.- 100 millas o más a barlovento de la montaña.','puntos': 0},
      ]         
   },
@@ -3659,7 +3682,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '89.- Según la Información Meteorológica de la Figura 116, el aeropuerto de Arica (SCAR), se encuentra:',
     'explicacion': r'La información codificada para SCAR indica cielo despejado, temperatura 26 °C y punto de rocío 18 °C. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Despejado y con una temperatura ambiente de 26 grados y una temperatura del punto de rocío de 18 grados.','puntos': 1},
      {'texto': 'B.- Sin nubosidad, con una temperatura del punto de rocío de 26 grados y una temperatura ambiente de 18 grados. Además, el viento es de los 220 grados con 12 nudos.','puntos': 0},
@@ -3670,7 +3693,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '90.- Según la Información Meteorológica de la Figura 116, Isla de Pascua (SCIP) el día 16 a las 17:00 hora Z tenía una visibilidad ....',
     'explicacion': r'La visibilidad aeronáutica se informa en metros; el rango 4.000 a 11.000 corresponde a visibilidad variable en metros. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Variable entre 4.000 y 11.000 pies.','puntos': 0},
      {'texto': 'B.- Variable entre 4.000 y 11.000 metros.','puntos': 1},
@@ -3681,7 +3704,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '91.- Según la Información Meteorológica de la Figura 116, La Serena está:',
     'explicacion': r'Cubierto corresponde a 8 octas; la base indicada equivale aproximadamente a 600 m. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Parcialmente cubierto (4/8) y las nubes tienen una base de 1.900 pies.','puntos': 0},
      {'texto': 'B.- Casi despejado y la base de la nubosidad es de aproximadamente 1900 metros.','puntos': 0},
@@ -3692,7 +3715,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '92.- Según la Información Meteorológica de la Figura 116, el día 16 a las 17:00 UTC el aeródromo de Tobalaba (SCTB) tenía:',
     'explicacion': r'El reporte de SCTB indica cielo despejado, visibilidad 6.000 m y viento muy débil, coherente con la opción marcada. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Nubosidad dispersa, viento de los 230 grados con una intensidad de 3 nudos y 6.000 pies de visibilidad.','puntos': 0},
      {'texto': 'B.- Cielo despejado, visibilidad de 6.000 metros y muy poco viento.','puntos': 1},
@@ -3703,7 +3726,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '93.- Según la Información Meteorológica de la Figura 116, el día 16 a las 17:00 UTC, Balmaceda (SCBA) tenía:',
     'explicacion': r'La codificación muestra nubosidad dispersa a 4.000 y 20.000 ft, más viento arrachado desde 310° entre 27 y 39 kt. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Nubosidad dispersa (3/8 a 4/8) a 4.000 pies y 20.000 pies, y ráfagas de viento de 27 a 39 nudos desde los 310 grados.','puntos': 1},
      {'texto': 'B.- Cielo cubierto por dos capas de nubes, una a 4.000 pies y la otra a 20.000 pies. El viento estaba arrachado entre 27 y 39 nudos desde los 310 grados.','puntos': 0},
@@ -3714,7 +3737,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '94.- Según la Información Meteorológica de la Figura 116, a las 17:00 UTC Punta Arenas (SCCI) tenía:',
     'explicacion': r'La lectura de SCCI indica pocas nubes cerca de 600 m y condición quebrada aproximadamente a 6.000 m. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Un viento que soplaba hacia los 270 grados con una intensidad de 26 nudos.','puntos': 0},
      {'texto': 'B.- Pocas nubes a 200 metros y quebrado a 2.000 metros, el QNH 994 y la temperatura ambiente y punto de rocío eran 14 y 6 grados respectivamente.','puntos': 0},
@@ -3725,7 +3748,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '95.- Indique qué significado tienen, respectivamente, las abreviaturas BECMG, INC y TEMPO en la Información Meteorológica de la Figura 117.',
     'explicacion': r'BECMG significa cambio gradual, INC indica dentro de nubes y TEMPO condiciones temporales. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura117.jpeg"],
     'respuestas': [
      {'texto': 'A.- Becoming (transformándose en ...), inconsistente y temporal.','puntos': 0},
      {'texto': 'B.- Becoming, intermitente y temporalmente.','puntos': 0},
@@ -3736,7 +3759,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '96.- El frente meteorológico identificado por una letra “O” en la Figura 120:',
     'explicacion': r'La simbología señalada por la letra O corresponde, según la figura del banco, a un frente estacionario en altura. Fuente: OMM-No. 306; OACI Doc 8896.',
-    
+    "imagenes": ["assets/figura120.jpeg"],
     'respuestas': [
      {'texto': 'A.- Es un frente estacionario en superficie.','puntos': 0},
      {'texto': 'B.- Es un frente ocluido en superficie.','puntos': 0},
@@ -3747,7 +3770,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '97.- La corriente de chorro identificada por dos letras “Z” (Figura 120), bajo la letra “V”, tiene una barra doble casi vertical. Esta barra doble significa:',
     'explicacion': r'La barra doble en la simbología del jet indica cambio significativo en la velocidad de la corriente de chorro. Fuente: OACI Doc 8896; OMM-No. 306.',
-    
+    "imagenes": ["assets/figura120.jpeg"],
     'respuestas': [
      {'texto': 'A.- Un cambio significativo en el nivel de la corriente de chorro.','puntos': 0},
      {'texto': 'B.- Un cambio significativo en la velocidad de la corriente de chorro.','puntos': 1},
@@ -3758,7 +3781,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '98.- En el Pronóstico Meteorológico de la Figura 120, al sur de Chile hay una corriente de chorro identificada por una letra “Z”. Indique cuál es la velocidad del viento en esa corriente a FL 340.',
     'explicacion': r'La corriente de chorro indicada a FL340 tiene velocidad de 90 kt según la simbología de la figura. Fuente: OACI Doc 8896; OMM-No. 306.',
-    
+    "imagenes": ["assets/figura120.jpeg"],
     'respuestas': [
      {'texto': 'A.- 90 nudos.','puntos': 1},
      {'texto': 'B.- 140 nudos.','puntos': 0},
@@ -3769,7 +3792,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '99.- En el Pronóstico Meteorológico de la Figura 120, inmediatamente bajo y a la derecha de la letra “X”, hay un símbolo semejante a una campana. Ello es indicativo de:',
     'explicacion': r'El símbolo tipo campana en cartas significativas representa erupción volcánica, fenómeno crítico por ceniza en ruta. Fuente: OACI Anexo 3; OACI Doc 9766.',
-    
+    "imagenes": ["assets/figura120.jpeg"],
     'respuestas': [
      {'texto': 'A.- Tempestad extensa de arena o polvo.','puntos': 0},
      {'texto': 'B.- Tormentas.','puntos': 0},
@@ -3780,7 +3803,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '100.- Referencia Figura 121. Ud. efectuará un vuelo desde el aeropuerto “a” al aeropuerto “c” al nivel de vuelo 340. A fin de planificar este vuelo Ud. debería considerar que su avión...',
     'explicacion': r'La figura indica viento de cola aproximado de 50 kt al FL340 y temperatura exterior cercana a -44 °C. Fuente: OACI Anexo 3; OACI Doc 8896.',
-    
+    "imagenes": ["assets/figura121.jpeg"],
     'respuestas': [
      {'texto': 'A.- Será afectado por un viento de frente de aproximadamente 50 nudos, y a ese nivel la temperatura exterior será de menos 44° C.','puntos': 0},
      {'texto': 'B.- Será afectado por un viento de cola de aproximadamente 50 nudos, y una temperatura exterior de menos 44°C.','puntos': 1},
@@ -3835,7 +3858,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '105.- Según la Información Meteorológica de la Figura 118, en Guayaquil:',
     'explicacion': r'La lectura indica visibilidad mayor a 10 km, 3-4 octas a 2.000 ft y 5-7 octas a 9.000 ft. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura118.jpeg"],
     'respuestas': [
      {'texto': 'A.- Habrá sobre 10 kilómetros de visibilidad, 3 a 4 octavos de cielo cubierto a 2.000 pies y 5 a 7 octavos de cielo cubierto a 9.000 pies.','puntos': 1},
      {'texto': 'B.- Habrá sobre 10 kilómetros de visibilidad, 3 a 4 octavos de cielo cubierto a 2.000 metros y 5 a 7 octavos de cielo cubierto a 9.000 metros.','puntos': 0},
@@ -3857,7 +3880,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '107.- Según la Información Meteorológica de la Figura 116, el día 16 a las 17:00 UTC el aeródromo de Concepción (SCIE) tenía:',
     'explicacion': r'La información de SCIE indica visibilidad mayor a 10 km, valor operacional codificado como visibilidad superior a 10 km. Fuente: OACI Anexo 3; OMM-No. 782.',
-    
+    "imagenes": ["assets/figura116.jpeg"],
     'respuestas': [
      {'texto': 'A.- Una visibilidad variable entre 1.800 y 2.500 pies.','puntos': 0},
      {'texto': 'B.- Una visibilidad variable entre 180 y 250 metros.','puntos': 0},
@@ -3974,9 +3997,9 @@ final List<Map<String, Object>> poolreglamentacion = [
     'explicacion': r'El certificado médico asociado a licencia ATPL tiene una validez máxima de seis meses según los requisitos médicos aplicables. Fuente: DGAC Chile, DAN 67/DAN 61, certificación médica aeronáutica.',
     
     'respuestas': [
-     {'texto': 'A.- Seis meses.','puntos': 1},
+     {'texto': 'A.- Seis meses.','puntos': 0},
      {'texto': 'B.- Ocho meses.','puntos': 0},
-     {'texto': 'C.- Doce meses.','puntos': 0},
+     {'texto': 'C.- Doce meses.','puntos': 1},
      ]         
   },
 
@@ -4113,12 +4136,12 @@ final List<Map<String, Object>> poolreglamentacion = [
 
 {
     'texto': '23.- Indique cuál de los siguientes requerimientos constituye parte del requisito de experiencia reciente para un piloto al mando.',
-    'explicacion': r'La experiencia reciente exige tres despegues y tres aterrizajes en el mismo tipo de avión dentro del período reglamentario indicado. Fuente: DGAC Chile, DAN 61 y DAN 121, experiencia reciente de pilotos.',
+    'explicacion': r'Tres despegues y tres aterrizajes dentro de los 90 días precedentes. Fuente: DGAC Chile, DAN 61 y DAN 121, experiencia reciente de pilotos.',
     
     'respuestas': [
-     {'texto': 'A.- Haber efectuado como mínimo un aterrizaje con falla simulada del motor más crítico en los últimos 90 días.','puntos': 0},
+     {'texto': 'A.- Haber efectuado como mínimo un aterrizaje con falla simulada del motor más crítico en los últimos 90 días.','puntos': 1},
      {'texto': 'B.- Haber efectuado como mínimo una aproximación ILS hasta la DH publicada y aterrizaje desde esta aproximación en los últimos seis meses.','puntos': 0},
-     {'texto': 'C.- Haber efectuado como mínimo tres despegues y tres aterrizajes en el mismo tipo de avión en los últimos 60 días.','puntos': 1},
+     {'texto': 'C.- Haber efectuado como mínimo tres despegues y tres aterrizajes en el mismo tipo de avión en los últimos 60 días.','puntos': 0},
      ]         
   },
 
@@ -4223,11 +4246,11 @@ final List<Map<String, Object>> poolreglamentacion = [
 
 {
     'texto': '33.- La dirección del viento, excepto para el despegue y el aterrizaje, se proporciona en:',
-    'explicacion': r'La clave del banco exige referencia magnética para esta información de viento; operacionalmente se vincula a rumbos y pistas usados por la aeronave. Fuente: DGAC Chile, DAN 91 y procedimientos ATS de información de viento.',
+    'explicacion': r'En informes meteorológicos locales, METAR y SPECI, la dirección del viento de superficie se notifica en grados geográficos. Fuente: DGAC Chile, DAN 91 y procedimientos ATS de información de viento.',
     
     'respuestas': [
-     {'texto': 'A.- Grados magnéticos.','puntos': 1},
-     {'texto': 'B.- Grados verdaderos.','puntos': 0},
+     {'texto': 'A.- Grados magnéticos.','puntos': 0},
+     {'texto': 'B.- Grados verdaderos / geográficos.','puntos': 1},
      {'texto': 'C.- Grados verdaderos corregidos por la variación del lugar.','puntos': 0},
      ]         
   },
@@ -4542,11 +4565,11 @@ final List<Map<String, Object>> poolreglamentacion = [
 
 {
     'texto': '62.- Una tripulación de un vuelo comercial, integrada por un piloto y un copiloto, el máximo tiempo de vuelo reglamentario para esta tripulación es de:',
-    'explicacion': r'Para una tripulación comercial de piloto y copiloto, el tiempo máximo de vuelo reglamentario indicado es 7 horas. Fuente: DGAC Chile, DAN 121, limitaciones de tiempo de vuelo.',
+    'explicacion': r'8 horas: ese es el tiempo que la DAN 121 establece como límite base de vuelo en 24 horas consecutivas para una tripulación mínima compuesta por piloto y copiloto.',
     
     'respuestas': [
-     {'texto': 'A.- 8 horas.','puntos': 0},
-     {'texto': 'B.- 7 horas.','puntos': 1},
+     {'texto': 'A.- 8 horas.','puntos': 1},
+     {'texto': 'B.- 7 horas.','puntos': 0},
      {'texto': 'C.- 6 horas.','puntos': 0},
      ]         
   },
@@ -4960,8 +4983,9 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
   String nombre = "Dispositivo";
 
   if (kIsWeb) {
-    idHardware = "web_${html.window.navigator.userAgent.hashCode}";
-    nombre = "Web: ${html.window.navigator.platform}";
+    var webInfo = await deviceInfo.webBrowserInfo;
+    idHardware = "web_${webInfo.userAgent.hashCode}";
+    nombre = "Web: ${webInfo.browserName.name} (${webInfo.platform})";
   } else if (Platform.isAndroid) {
     AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
     idHardware = androidInfo.id; // ID único permanente del hardware
@@ -5466,7 +5490,47 @@ class MainMenu extends StatelessWidget {
               
               // Espaciado entre el instructivo y la grilla de materias
               const SizedBox(height: 20), 
-
+              Card(
+                elevation: 3,
+                color: Colors.orange.shade50, // Color distinto para resaltarlo
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.feedback_outlined, color: Colors.orange.shade700, size: 28),
+                        const SizedBox(width: 15),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Buzón de Sugerencias",
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                "Envía dudas, observaciones u otros comentarios",
+                                style: TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               // Tu GridView original envuelto en un Expanded para que convivan perfectamente
               Expanded(
                 child: GridView.builder(
@@ -6187,6 +6251,178 @@ class _ZoomableImageState extends State<ZoomableImage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class PantallaSugerencias extends StatefulWidget {
+  const PantallaSugerencias({super.key});
+
+  @override
+  State<PantallaSugerencias> createState() => _PantallaSugerenciasState();
+}
+
+class _PantallaSugerenciasState extends State<PantallaSugerencias> {
+  String? _tipoSeleccionado;
+  String? _materiaSeleccionada;
+  final TextEditingController _mensajeController = TextEditingController();
+  bool _enviando = false;
+
+  // Opciones para los menús desplegables
+  final List<String> _tipos = ['Observación', 'Duda', 'Otro'];
+  final List<String> _materias = [
+    'AERODINÁMICA',
+    'PERFORMANCE Y MOTORES',
+    'OPERACIONES DE VUELO',
+    'PESO Y BALANCE',
+    'METEOROLOGÍA',
+    'REGLAMENTACIÓN',
+    'Aplicación / General' // Opción por si es un fallo de la app
+  ];
+
+  Future<void> _enviarSugerencia() async {
+    // 1. Validación de campos vacíos
+    if (_tipoSeleccionado == null || _materiaSeleccionada == null || _mensajeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Por favor, completa todos los campos")),
+      );
+      return;
+    }
+
+    setState(() => _enviando = true);
+
+    try {
+      // 2. Obtener la identidad del usuario activo desde SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String userName = prefs.getString('userName') ?? "Usuario Desconocido";
+
+      // 3. Enviar los datos a la colección "Sugerencias" en Firebase
+      await FirebaseFirestore.instance.collection('Sugerencias').add({
+        'usuario': userName,
+        'tipo': _tipoSeleccionado,
+        'materia': _materiaSeleccionada,
+        'mensaje': _mensajeController.text.trim(),
+        'fecha': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("¡Mensaje enviado con éxito! Gracias por tu aporte."), 
+            backgroundColor: Colors.green
+          ),
+        );
+        Navigator.pop(context); // Cierra la pantalla tras enviar
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al enviar: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _mensajeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Enviar Sugerencia"),
+        backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bloque 1: Tipo de mensaje
+              const Text("¿Qué deseas reportar?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                ),
+                hint: const Text("Selecciona una opción"),
+                value: _tipoSeleccionado,
+                items: _tipos.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (newValue) => setState(() => _tipoSeleccionado = newValue),
+              ),
+              const SizedBox(height: 20),
+
+              // Bloque 2: Materia relacionada
+              const Text("Materia o Sección", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                ),
+                hint: const Text("Selecciona la materia"),
+                value: _materiaSeleccionada,
+                items: _materias.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (newValue) => setState(() => _materiaSeleccionada = newValue),
+              ),
+              const SizedBox(height: 20),
+
+              // Bloque 3: Cuadro de texto para el mensaje
+              const Text("Tu mensaje", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _mensajeController,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: "Escribe tu observación o duda aquí de forma detallada...",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // Botón de Enviar
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _enviando ? null : _enviarSugerencia,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 4,
+                  ),
+                  child: _enviando
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("ENVIAR", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

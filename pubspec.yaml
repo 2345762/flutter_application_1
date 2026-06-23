@@ -36,6 +36,7 @@ dependencies:
   path_provider: ^2.1.1
   flutter_animate: ^4.5.0
   open_filex: ^4.5.0
+  
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -118,7 +119,32 @@ flutter:
       - assets/figura59yfigura60.jpg
       - assets/imagen_bienvenida.png
       - assets/PRECADET_LOGO.png
-
+      - assets/figura116.jpeg
+      - assets/figura117.jpeg
+      - assets/figura118.jpeg
+      - assets/figura120.jpeg
+      - assets/figura121.jpeg
+      - assets/figura94.jpeg
+      - assets/figura96.jpeg
+      - assets/figura97.jpeg
+      - assets/figura98.jpeg
+      - assets/figura99.jpeg
+      - assets/figura100.jpeg
+      - assets/figura110.jpeg
+      - assets/figura102.jpeg
+      - assets/figura104.jpeg
+      - assets/figura107.jpeg
+      - assets/figura101.png
+      - assets/figura108.jpeg
+      - assets/figura110.jpeg
+      - assets/figura29.jpeg
+      - assets/figura31.jpeg
+      - assets/figura32.jpeg
+      - assets/figura34.jpeg
+      - assets/figura35.jpeg
+      - assets/figura36.jpeg
+      - assets/figura37.png
+      - assets/figura38.jpeg
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
