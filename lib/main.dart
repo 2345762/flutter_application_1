@@ -744,7 +744,7 @@ final List<Map<String, Object>> poolperformanceymotores = [
     },
     {
         'texto': '4.- ¿Qué efecto tiene una alta humedad relativa en la potencia máxima de los motores de las aeronaves modernas?',
-        'explicacion': 'Concepto teórico: en motores modernos el efecto de la humedad sobre la potencia o empuje máximo es secundario frente a temperatura, presión-altitud y densidad. En este ítem la alternativa aceptada indica que ni turborreactores ni recíprocos son afectados de forma determinante para el cálculo solicitado.',
+        'explicacion': 'El vapor de agua es más liviano (menos denso) que el aire seco. Por lo tanto, a mayor humedad relativa, menor es la densidad del aire. Esto significa que hay menos moléculas de oxígeno disponibles por cada volumen de aire que ingresa al motor.',
         'respuestas': [
             {'texto': 'A.- Ni los motores turborreactores ni los motores recíprocos son afectados.', 'puntos': 1},
             {'texto': 'B.- Los motores recíprocos experimentarán una mayor pérdida de BHP que los de turbinas.', 'puntos': 0},
@@ -1829,9 +1829,9 @@ final List<Map<String, Object>> pooloperacionesdevuelo = [
   "explicacion": "El símbolo P dentro de un círculo identifica una zona prohibida. Fuente: DGAC Chile, AIP Chile Vol. I, GEN 2.3, símbolos cartográficos.",
   "imagenes": ["assets/figura102.jpeg"],
   "respuestas": [
-    {"texto": "A.- Zona Prohibida.", "puntos": 1},
+    {"texto": "A.- Zona Prohibida.", "puntos": 0},
     {"texto": "B.- Zona de Espera.", "puntos": 0},
-    {"texto": "C.- PAPI en uso.", "puntos": 0}
+    {"texto": "C.- PAPI en uso.", "puntos": 1}
   ]
 },
 {
@@ -3682,7 +3682,7 @@ final List<Map<String, Object>> poolmeteorologia = [
 {
     'texto': '89.- Según la Información Meteorológica de la Figura 116, el aeropuerto de Arica (SCAR), se encuentra:',
     'explicacion': r'La información codificada para SCAR indica cielo despejado, temperatura 26 °C y punto de rocío 18 °C. Fuente: OACI Anexo 3; OMM-No. 782.',
-    "imagenes": ["assets/figura116.jpeg"],
+    "imagenes": ["assets/figura116.2.jpeg"],
     'respuestas': [
      {'texto': 'A.- Despejado y con una temperatura ambiente de 26 grados y una temperatura del punto de rocío de 18 grados.','puntos': 1},
      {'texto': 'B.- Sin nubosidad, con una temperatura del punto de rocío de 26 grados y una temperatura ambiente de 18 grados. Además, el viento es de los 220 grados con 12 nudos.','puntos': 0},
@@ -4655,6 +4655,8 @@ final List<Map<String, Object>> poolreglamentacion = [
 // =============================================================
 // LÓGICA DE LA APLICACIÓN
 // =============================================================
+// Notificador global para el tema. Inicia con la configuración del sistema.
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
@@ -4783,21 +4785,45 @@ class _PantallaPrimeraVezState extends State<PantallaPrimeraVez> {
 
 class QuizApp extends StatelessWidget {
   final Widget startWidget;
-  const QuizApp({super.key, required this.startWidget});
+  const QuizApp({super.key, required this.startWidget}); // 
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-      ),
-      home: startWidget, 
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, ThemeMode currentMode, __) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          themeMode: currentMode, // <--- Ahora usa el valor de nuestro Notifier
+          
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.indigo,
+              brightness: Brightness.light, // [cite: 27]
+            ),
+          ),
+          
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.indigo,
+              brightness: Brightness.dark,
+            ),
+            scaffoldBackgroundColor: const Color.fromARGB(255, 1, 41, 68), // [cite: 28]
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF1E1E1E),
+              foregroundColor: Colors.white,
+            ),
+            cardColor: const Color(0xFF1E1E1E), // [cite: 28]
+          ),
+          
+          home: startWidget,
+        );
+      },
     );
   }
 }
-
 // 2. PANTALLA DE BIENVENIDA (ESTILO WINDOWS)
 
 String formatearNombreDesdeCorreo(String correo) {
@@ -5407,6 +5433,7 @@ class PantallaInstructivo extends StatelessWidget {
 
 // 4. MENÚ PRINCIPAL 
 class MainMenu extends StatelessWidget {
+  
   final List<Map<String, dynamic>> materias = [
     {'nombre': 'AERODINÁMICA', 'Imagen': "assets/AERODINAMICA_SIN_FONDO.png", 'pool': poolAerodinamica, 'limite': 16}, 
     {'nombre': 'PERFORMANCE Y MOTORES', 'Imagen': "assets/PERFORMANCE_Y_MOTORES_SIN_FONDO.png", 'pool': poolperformanceymotores, 'limite': 16},
@@ -5419,178 +5446,197 @@ class MainMenu extends StatelessWidget {
   MainMenu({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Panel de Estudio", style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
-                  (route) => false,
-                );
-              }
+Widget build(BuildContext context) {
+  // Determinamos el modo oscuro basándonos en el tema actual del contexto
+  bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text("Panel de Estudio", style: TextStyle(fontWeight: FontWeight.bold)),
+      centerTitle: true,
+      actions: [
+        ValueListenableBuilder<ThemeMode>(
+          valueListenable: themeNotifier,
+          builder: (context, currentMode, child) {
+            // Lógica para determinar si el switch debe estar activo
+            bool isDark = currentMode == ThemeMode.dark || 
+                (currentMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
+                
+            return Switch(
+              value: isDark,
+              activeColor: Colors.amber,
+              activeTrackColor: Colors.black45,
+              inactiveThumbColor: Colors.indigo,
+              onChanged: (value) {
+                themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+              },
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.red),
+          onPressed: () async {
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+            await prefs.clear();
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+                (route) => false,
+              );
             }
-          )
-        ]
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              //Cuadro "Ver Instructivo" agregado arriba de las materias
-              Card(
-                elevation: 3,
-                color: Colors.indigo.shade50,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.picture_as_pdf, color: Colors.red.shade700, size: 28),
-                        const SizedBox(width: 15),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Ver Instructivo",
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                "Encargado de operaciones de vuelo EOV",
-                                style: TextStyle(fontSize: 12, color: Colors.black54),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Espaciado entre el instructivo y la grilla de materias
-              const SizedBox(height: 20), 
-              Card(
-                elevation: 3,
-                color: Colors.orange.shade50, // Color distinto para resaltarlo
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.feedback_outlined, color: Colors.orange.shade700, size: 28),
-                        const SizedBox(width: 15),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Buzón de Sugerencias",
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                "Envía dudas, observaciones u otros comentarios",
-                                style: TextStyle(fontSize: 12, color: Colors.black54),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Tu GridView original envuelto en un Expanded para que convivan perfectamente
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    // Lógica responsiva: Si la pantalla es más ancha que 600px (PC), usa 4 columnas. Si no (Celular), usa 2.
-                    crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                    childAspectRatio: 0.85,
-                  ),
-                  itemCount: materias.length,
-                  itemBuilder: (context, index) {
-                    final materia = materias[index];
-                    return InkWell(
-                      onTap: () => _mostrarSeleccionModo(context, materia),
-                      child: Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          }
+        )
+      ]
+    ),
+    body: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            // Cuadro "Ver Instructivo"
+            Card(
+              elevation: 3,
+              color: esModoOscuro ? const Color.fromARGB(0, 51, 42, 0) : Colors.orange.shade50,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf, color: Colors.red.shade700, size: 28),
+                      const SizedBox(width: 15),
+                      Expanded(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  bool esEscritorio = constraints.maxWidth > 600;
-                                  double escala = esEscritorio ? 1.0 : 1.35;
-                                  return Transform.scale(
-                                    scale: escala,
-                                    child: Image.asset(
-                                      materia["Imagen"].toString(),
-                                      cacheWidth: 400,
-                                      filterQuality: FilterQuality.high,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-                                    )
-                                  );
-                                }
-                              ),
+                            Text(
+                              "Ver Instructivo",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: esModoOscuro ? Colors.indigo.shade200 : Colors.indigo),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                materia['nombre'].toString(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)
-                              ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "Encargado de operaciones de vuelo EOV",
+                              style: TextStyle(fontSize: 12, color: esModoOscuro ? Colors.white70 : Colors.black54),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  },
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20), 
+            // Cuadro "Buzón de Sugerencias"
+            Card(
+              elevation: 3,
+              color: esModoOscuro ? const Color.fromARGB(0, 51, 42, 0) : Colors.orange.shade50,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.feedback_outlined, color: Colors.orange.shade700, size: 28),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Buzón de Sugerencias",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: esModoOscuro ? Colors.orange.shade200 : Colors.indigo),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "Envía dudas, observaciones u otros comentarios",
+                              style: TextStyle(fontSize: 12, color: esModoOscuro ? Colors.white70 : Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.indigo),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // GridView de materias
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
+                  crossAxisSpacing: 15,
+                  mainAxisSpacing: 15,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: materias.length,
+                itemBuilder: (context, index) {
+                  final materia = materias[index];
+                  return InkWell(
+                    onTap: () => _mostrarSeleccionModo(context, materia),
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                bool esEscritorio = constraints.maxWidth > 600;
+                                double escala = esEscritorio ? 1.0 : 1.35;
+                                return Transform.scale(
+                                  scale: escala,
+                                  child: Image.asset(
+                                    materia["Imagen"].toString(),
+                                    cacheWidth: 400,
+                                    filterQuality: FilterQuality.high,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                  )
+                                );
+                              }
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              materia['nombre'].toString(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _mostrarSeleccionModo(BuildContext context, Map<String, dynamic> materia) {
     showModalBottomSheet(
@@ -5722,7 +5768,91 @@ class _QuizPageState extends State<QuizPage> {
     if (porcentaje >= 0.65) return Colors.orange;
     return Colors.red;
   }
+  void _mostrarDialogoReporte(BuildContext context, int indexPregunta, String textoPregunta) {
+    final TextEditingController _reporteController = TextEditingController();
+    bool _enviandoReporte = false;
 
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text("Reportar Pregunta", style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Pregunta ${indexPregunta + 1}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _reporteController,
+                    decoration: InputDecoration(
+                      hintText: "¿Qué problema encontraste? (Ej. Respuesta incorrecta, mal redactada...)",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade400,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: _enviandoReporte ? null : () async {
+                    if (_reporteController.text.trim().isEmpty) return;
+                    
+                    setStateDialog(() => _enviandoReporte = true);
+                    
+                    try {
+                      SharedPreferences prefs = await SharedPreferences.getInstance();
+                      String userName = prefs.getString('userName') ?? "Desconocido";
+
+                      await FirebaseFirestore.instance.collection('Reportes_Preguntas').add({
+                        'usuario': userName,
+                        'materia': widget.tituloMateria,
+                        'modo_test': widget.isTestMode,
+                        'pregunta_index': indexPregunta,
+                        'pregunta_texto': textoPregunta,
+                        'mensaje': _reporteController.text.trim(),
+                        'fecha': FieldValue.serverTimestamp(),
+                      });
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Reporte enviado. ¡Gracias!"), backgroundColor: Colors.green),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Error al reportar: $e"), backgroundColor: Colors.red),
+                        );
+                        setStateDialog(() => _enviandoReporte = false);
+                      }
+                    }
+                  },
+                  child: _enviandoReporte 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Enviar Reporte"),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
   void validarRespuesta(int indice, int puntos) {
     if (respondido && !widget.isTestMode) return;
     
@@ -5793,11 +5923,15 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Detectamos si estamos en modo oscuro
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      // AQUÍ ESTÁ LA MAGIA: Cambiamos el fondo gris claro por un azul oscuro elegante
+      backgroundColor: esModoOscuro ? const Color.fromARGB(255, 1, 41, 68) : Colors.grey.shade50,
       appBar: AppBar(
         title: Text(widget.isTestMode ? 'Test: ${widget.tituloMateria}' : 'Estudio: ${widget.tituloMateria}'),
-        backgroundColor: Colors.indigo,
+        backgroundColor: esModoOscuro ? const Color.fromARGB(0, 15, 23, 42) : Colors.indigo,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -5805,7 +5939,7 @@ class _QuizPageState extends State<QuizPage> {
           ? buildSolucionario() 
           : Column(
               children: [
-                _buildMenuDesplazableNumeros(), // Menú superior deslizable
+                _buildMenuDesplazableNumeros(),
                 Expanded(
                   child: PageView.builder(
                     physics: _scrollBloqueado 
@@ -5916,13 +6050,34 @@ class _QuizPageState extends State<QuizPage> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Text(
-                _formatearTextoPregunta(pregunta['texto'], index),
-                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
-                textAlign: TextAlign.center,
+              child: Stack(
+                children: [
+                  // Texto de la pregunta centrado
+                  Align(
+                    alignment: Alignment.center,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8.0, right: 30.0), // Margen para que el texto no pise el botón
+                      child: Text(
+                        _formatearTextoPregunta(pregunta['texto'], index),
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, height: 1.3),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      icon: Icon(Icons.report_problem_outlined, color: Colors.red.shade400),
+                      tooltip: "Reportar un problema con esta pregunta",
+                      onPressed: () => _mostrarDialogoReporte(context, index, pregunta['texto']),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+            
+          
           const SizedBox(height: 20),
           
           // Carga de imágenes corregida con su ZoomableImage
@@ -5959,22 +6114,27 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Widget buildBotonRespuesta(int index, Map<String, dynamic> res, bool mostrarSolucion, int? seleccionGuardada) {
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    
     bool esCorrecta = res['puntos'] == 1;
     bool seleccionada = (seleccionGuardada == index);
     bool debeMostrarColores = mostrarSolucion;
-    Color colorBorde = Colors.grey.shade200;
-    Color colorFondo = Colors.white;
-    Color colorTexto = Colors.black87;
+    
+    // Colores dinámicos por defecto
+    Color colorBorde = esModoOscuro ? Colors.grey.shade700 : Colors.grey.shade200;
+    Color colorFondo = esModoOscuro ? const Color(0xFF1E293B) : Colors.white;
+    Color colorTexto = esModoOscuro ? Colors.white : Colors.black87;
 
     if (!widget.isTestMode && debeMostrarColores) {
       if (esCorrecta) {
         colorBorde = Colors.green;
-        colorFondo = Colors.green.shade50;
-        colorTexto = Colors.green.shade900;
+        // Fondo translúcido para que no sature en modo oscuro
+        colorFondo = esModoOscuro ? Colors.green.withOpacity(0.2) : Colors.green.shade50;
+        colorTexto = esModoOscuro ? Colors.green.shade300 : Colors.green.shade900;
       } else if (seleccionada) {
         colorBorde = Colors.red;
-        colorFondo = Colors.red.shade50;
-        colorTexto = Colors.red.shade900;
+        colorFondo = esModoOscuro ? Colors.red.withOpacity(0.2) : Colors.red.shade50;
+        colorTexto = esModoOscuro ? Colors.red.shade300 : Colors.red.shade900;
       }
     }
 
@@ -6000,10 +6160,16 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Widget buildExplicacion(String texto) {
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
-      color: Colors.amber.shade50,
+      // Un tono amarillo/café muy oscuro para fondo
+      color: esModoOscuro ? const Color(0xFF2D2400) : Colors.amber.shade50,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.amber.shade200)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14), 
+        side: BorderSide(color: esModoOscuro ? const Color.fromARGB(0, 255, 145, 0) : Colors.amber.shade200)
+      ),
       margin: const EdgeInsets.symmetric(vertical: 20),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -6012,7 +6178,17 @@ class _QuizPageState extends State<QuizPage> {
           children: [
             const Icon(Icons.lightbulb, color: Colors.amber, size: 24),
             const SizedBox(width: 10),
-            Expanded(child: Text(texto, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87, height: 1.3))),
+            Expanded(
+              child: Text(
+                texto, 
+                style: TextStyle(
+                  fontStyle: FontStyle.italic, 
+                  // Texto amarillo claro en modo oscuro
+                  color: esModoOscuro ? Colors.amber.shade100 : Colors.black87, 
+                  height: 1.3
+                )
+              )
+            ),
           ],
         ),
       ),
@@ -6022,11 +6198,11 @@ class _QuizPageState extends State<QuizPage> {
   // INTERFAZ MODERNA Y ATRACTIVA DE NAVEGACIÓN
   Widget _buildBarraNavegacionAtractiva() {
     final esUltimaPregunta = preguntaActual == preguntas.length - 1;
-    
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: esModoOscuro ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -4))
@@ -6333,10 +6509,18 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
 
   @override
   Widget build(BuildContext context) {
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    
+    // Variables de estilo dinámicas
+    Color colorTextoTitulos = esModoOscuro ? Colors.white : Colors.black87;
+    Color colorFondoCasillas = esModoOscuro ? Colors.grey.shade800 : Colors.grey.shade100;
+    Color colorBordes = esModoOscuro ? Colors.grey.shade700 : Colors.grey.shade300;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Enviar Sugerencia"),
-        backgroundColor: Colors.indigo,
+        // CAMBIO: Adaptamos el AppBar al modo oscuro
+        backgroundColor: esModoOscuro ? const Color(0xFF0F172A) : Colors.indigo,
         foregroundColor: Colors.white,
       ),
       body: Padding(
@@ -6346,15 +6530,18 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Bloque 1: Tipo de mensaje
-              const Text("¿Qué deseas reportar?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("¿Qué deseas reportar?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorTextoTitulos)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: colorFondoCasillas, // CAMBIO: Fondo dinámico de la casilla
                 ),
-                hint: const Text("Selecciona una opción"),
+                dropdownColor: esModoOscuro ? Colors.grey.shade800 : Colors.white,
+                style: TextStyle(color: esModoOscuro ? Colors.white : Colors.black87),
+                hint: Text("Selecciona una opción", style: TextStyle(color: esModoOscuro ? Colors.grey.shade400 : Colors.grey.shade600)),
                 value: _tipoSeleccionado,
                 items: _tipos.map((String value) {
                   return DropdownMenuItem<String>(
@@ -6367,15 +6554,18 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
               const SizedBox(height: 20),
 
               // Bloque 2: Materia relacionada
-              const Text("Materia o Sección", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("Materia o Sección", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorTextoTitulos)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: colorFondoCasillas,
                 ),
-                hint: const Text("Selecciona la materia"),
+                dropdownColor: esModoOscuro ? Colors.grey.shade800 : Colors.white,
+                style: TextStyle(color: esModoOscuro ? Colors.white : Colors.black87),
+                hint: Text("Selecciona la materia", style: TextStyle(color: esModoOscuro ? Colors.grey.shade400 : Colors.grey.shade600)),
                 value: _materiaSeleccionada,
                 items: _materias.map((String value) {
                   return DropdownMenuItem<String>(
@@ -6388,16 +6578,19 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
               const SizedBox(height: 20),
 
               // Bloque 3: Cuadro de texto para el mensaje
-              const Text("Tu mensaje", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("Tu mensaje", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorTextoTitulos)),
               const SizedBox(height: 8),
               TextField(
                 controller: _mensajeController,
                 maxLines: 6,
+                style: TextStyle(color: esModoOscuro ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
                   hintText: "Escribe tu observación o duda aquí de forma detallada...",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintStyle: TextStyle(color: esModoOscuro ? Colors.grey.shade400 : Colors.grey.shade600),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorBordes)),
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: colorFondoCasillas,
                 ),
               ),
               const SizedBox(height: 30),
