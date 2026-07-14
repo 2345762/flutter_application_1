@@ -86,7 +86,7 @@ flutter:
       - assets/ESCUELA_LOGO.png
       - assets/ICONO_PRECADET.png
       - assets/LOGO2.png
-      - assets/Instructivo.pdf 
+      - assets/Instructivo.pdf
       - assets/figura76yfigura77yfigura78.jpg
       - assets/figura79.jpg
       - assets/figura80.jpg
@@ -113,7 +113,6 @@ flutter:
       - assets/figura89.jpg
       - assets/figura90.jpg
       - assets/figura91.jpg
-      - assets/figura48yfigura49.jpg
       - assets/figura82.jpg
       - assets/figura56yfigura57.jpg
       - assets/figura59yfigura60.jpg
@@ -136,7 +135,6 @@ flutter:
       - assets/figura107.jpeg
       - assets/figura101.png
       - assets/figura108.jpeg
-      - assets/figura110.jpeg
       - assets/figura29.jpeg
       - assets/figura31.jpeg
       - assets/figura32.jpeg
