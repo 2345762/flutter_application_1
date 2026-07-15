@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 class SubjectCard extends StatelessWidget {
+  static const Color accent = Color(0xFF0091D5);
+
   final String nombre;
   final String imagenAsset;
   final int streakDays;
+  final bool tieneIntentos;
+  final double? ultimoPct;
+  final bool esMateriaActual;
   final VoidCallback onTap;
   final Color darkGradientColor;
   final Color darkTextColor;
@@ -14,6 +19,9 @@ class SubjectCard extends StatelessWidget {
     required this.nombre,
     required this.imagenAsset,
     required this.streakDays,
+    required this.tieneIntentos,
+    required this.ultimoPct,
+    required this.esMateriaActual,
     required this.onTap,
     required this.darkGradientColor,
     required this.darkTextColor,
@@ -23,13 +31,18 @@ class SubjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = esModoOscuro ? darkTextColor : lightTextColor;
 
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Card(
         elevation: 4,
         shadowColor: esModoOscuro ? Colors.black26 : Colors.black12,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: esMateriaActual ? const BorderSide(color: accent, width: 2) : BorderSide.none,
+        ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -113,14 +126,31 @@ class SubjectCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(6.0),
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 2),
                 child: Text(
                   nombre,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: esModoOscuro ? darkTextColor : lightTextColor,
+                    fontSize: 13,
+                    height: 1.15,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  tieneIntentos ? 'Último: ${ultimoPct!.round()}%' : 'Sin intentos',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: textColor.withOpacity(0.65),
                   ),
                 ),
               ),

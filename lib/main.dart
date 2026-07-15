@@ -32,6 +32,8 @@ import 'data/reglamentacion.dart';
 import 'widgets/panel_estudio/app_header.dart';
 import 'widgets/panel_estudio/subject_card.dart';
 import 'widgets/panel_estudio/mode_selector_sheet.dart';
+import 'widgets/panel_estudio/continue_studying_card.dart';
+import 'widgets/panel_estudio/progress_summary.dart';
 
 // =============================================================
 // MODELOS DE DATOS PARA STREAK MODE E HISTORIAL
@@ -1495,7 +1497,8 @@ class MainMenu extends StatefulWidget {
 
 class _MainMenuState extends State<MainMenu> {
   Map<String, StreakData> _streakData = {};
-  int _totalStreakExams = 0;
+  List<ExamResult> _examHistory = [];
+  String _userName = '';
 
   @override
   void initState() {
@@ -1505,14 +1508,66 @@ class _MainMenuState extends State<MainMenu> {
 
   Future<void> _loadStreakData() async {
     final streaks = await StorageService.getAllStreakData();
-    final total = await StorageService.getTotalStreakExams();
+    final history = await StorageService.getExamHistory();
+    final prefs = await SharedPreferences.getInstance();
+    final rawUserName = prefs.getString('userName') ?? '';
 
     if (mounted) {
       setState(() {
         _streakData = streaks;
-        _totalStreakExams = total;
+        _examHistory = history;
+        _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
     }
+  }
+
+  // --- Datos derivados para "Continuar estudiando" y el resumen inferior. ---
+  // Se calculan sobre _examHistory (ya cargado desde StorageService.getExamHistory,
+  // sin persistencia nueva) y _streakData (ya cargado). No se inventa ningún dato.
+
+  ExamResult? get _ultimoResultado {
+    if (_examHistory.isEmpty) return null;
+    return _examHistory.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+  }
+
+  int get _materiasIniciadas => _examHistory.map((e) => e.subject).toSet().length;
+
+  int get _rachaActivaMax {
+    if (_streakData.isEmpty) return 0;
+    return _streakData.values.map((s) => s.streakDays).reduce((a, b) => a > b ? a : b);
+  }
+
+  double? get _mejorResultadoPct {
+    if (_examHistory.isEmpty) return null;
+    double mejor = 0;
+    for (final e in _examHistory) {
+      if (e.totalQuestions <= 0) continue;
+      final pct = (e.score / e.totalQuestions) * 100;
+      if (pct > mejor) mejor = pct;
+    }
+    return mejor;
+  }
+
+  String _modoLabel(String modo) {
+    switch (modo) {
+      case 'test':
+        return 'Test';
+      case 'streak':
+        return 'Racha';
+      case 'practice':
+      default:
+        return 'Práctica';
+    }
+  }
+
+  ({bool tieneIntentos, double? ultimoPct}) _statsMateria(String nombre) {
+    final intentos = _examHistory.where((e) => e.subject == nombre).toList();
+    if (intentos.isEmpty) {
+      return (tieneIntentos: false, ultimoPct: null);
+    }
+    final ultimo = intentos.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+    final ultimoPct = ultimo.totalQuestions > 0 ? (ultimo.score / ultimo.totalQuestions) * 100 : 0.0;
+    return (tieneIntentos: true, ultimoPct: ultimoPct);
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -1529,64 +1584,159 @@ class _MainMenuState extends State<MainMenu> {
 
   @override
 Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: PanelEstudioAppBar(
-      totalStreakExams: _totalStreakExams,
-      themeNotifier: themeNotifier,
-      onOpenInstructions: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
-        );
-      },
-      onOpenSuggestions: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
-        );
-      },
-      onOpenHistory: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
-        );
-      },
-      onStreakTap: () => _mostrarResumenStreak(context),
-      onLogout: () => _handleLogout(context),
-    ),
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // GridView de materias
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.0,
-                ),
-                itemCount: widget.materias.length,
-                itemBuilder: (context, index) {
-                  final materia = widget.materias[index];
-                  final streakInfo = _streakData[materia['nombre']];
-                  final streakDays = streakInfo?.streakDays ?? 0;
+  final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+  final Color textColor = esModoOscuro ? AppColors.darkText : AppColors.lightText;
+  final Color secondaryTextColor = esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-                  return SubjectCard(
-                    nombre: materia['nombre'].toString(),
-                    imagenAsset: materia['Imagen'].toString(),
-                    streakDays: streakDays,
-                    onTap: () => _mostrarSeleccionModo(context, materia),
-                    darkGradientColor: AppColors.darkCard,
-                    darkTextColor: AppColors.darkText,
-                    lightTextColor: AppColors.lightText,
-                  );
-                },
+  final ExamResult? ultimo = _ultimoResultado;
+  final Map<String, dynamic> materiaContinuar = ultimo != null
+      ? widget.materias.firstWhere(
+          (m) => m['nombre'] == ultimo.subject,
+          orElse: () => widget.materias.first,
+        )
+      : widget.materias.first;
+  final double? resultadoContinuarPct =
+      (ultimo != null && ultimo.totalQuestions > 0) ? (ultimo.score / ultimo.totalQuestions) * 100 : null;
+
+  final Widget header = PanelEstudioHeader(
+    userName: _userName,
+    rachaActivaMax: _rachaActivaMax,
+    themeNotifier: themeNotifier,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    onOpenInstructions: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
+      );
+    },
+    onOpenSuggestions: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
+      );
+    },
+    onOpenHistory: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
+      );
+    },
+    onStreakTap: () => _mostrarResumenStreak(context),
+    onLogout: () => _handleLogout(context),
+  );
+
+  final Widget continueCard = ContinueStudyingCard(
+    hasHistory: ultimo != null,
+    materiaNombre: materiaContinuar['nombre'].toString(),
+    imagenAsset: materiaContinuar['Imagen'].toString(),
+    modoLabel: ultimo != null ? _modoLabel(ultimo.mode) : null,
+    resultadoPct: resultadoContinuarPct,
+    onTap: () => _mostrarSeleccionModo(context, materiaContinuar),
+    darkGradientColor: AppColors.darkCard,
+    darkTextColor: AppColors.darkText,
+    lightTextColor: AppColors.lightText,
+  );
+
+  final Widget summary = ProgressSummary(
+    materiasIniciadas: _materiasIniciadas,
+    totalMaterias: widget.materias.length,
+    rachaActivaMax: _rachaActivaMax,
+    mejorResultadoLabel: _mejorResultadoPct != null ? '${_mejorResultadoPct!.round()}%' : '—',
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+  );
+
+  Widget buildSubjectCard(Map<String, dynamic> materia) {
+    final streakInfo = _streakData[materia['nombre']];
+    final streakDays = streakInfo?.streakDays ?? 0;
+    final nombreMateria = materia['nombre'].toString();
+    final stats = _statsMateria(nombreMateria);
+
+    return SubjectCard(
+      nombre: nombreMateria,
+      imagenAsset: materia['Imagen'].toString(),
+      streakDays: streakDays,
+      tieneIntentos: stats.tieneIntentos,
+      ultimoPct: stats.ultimoPct,
+      esMateriaActual: ultimo != null && nombreMateria == ultimo.subject,
+      onTap: () => _mostrarSeleccionModo(context, materia),
+      darkGradientColor: AppColors.darkCard,
+      darkTextColor: AppColors.darkText,
+      lightTextColor: AppColors.lightText,
+    );
+  }
+
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final bool esEscritorioAncho = screenWidth >= 600;
+
+  if (!esEscritorioAncho) {
+    // Diseño móvil aprobado (< 600 px) — estructura sin cambios.
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              header,
+              const SizedBox(height: 14),
+              continueCard,
+              const SizedBox(height: 14),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: widget.materias.length,
+                  itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
+                ),
               ),
+              const SizedBox(height: 14),
+              summary,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Escritorio / web ancho (>= 600 px): contenido centrado, ancho máximo,
+  // todo dentro de un único scroll (encabezado, continuar, materias y resumen).
+  return Scaffold(
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1150),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                const SizedBox(height: 14),
+                continueCard,
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: widget.materias.length,
+                  itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
+                ),
+                const SizedBox(height: 16),
+                summary,
+                const SizedBox(height: 28),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),
