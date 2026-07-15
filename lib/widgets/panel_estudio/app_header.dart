@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'streak_fire_badge.dart';
+
 class PanelEstudioHeader extends StatelessWidget {
   final String userName;
   final int rachaActivaMax;
@@ -18,6 +20,11 @@ class PanelEstudioHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double streakBadgeSize = screenWidth >= 600
+        ? 92.0
+        : (screenWidth <= 340 ? 72.0 : 79.0);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -64,50 +71,10 @@ class PanelEstudioHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Semantics(
-          button: true,
-          label: 'Ver resumen de rachas. Racha máxima: $rachaActivaMax días.',
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onStreakTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                alignment: Alignment.center,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange, width: 1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.local_fire_department,
-                        color: Colors.orange,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$rachaActivaMax',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+        StreakFireBadge(
+          streakDays: rachaActivaMax,
+          onTap: onStreakTap,
+          size: streakBadgeSize,
         ),
         const SizedBox(width: 6),
         Semantics(

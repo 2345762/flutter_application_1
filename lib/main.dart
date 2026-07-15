@@ -1655,6 +1655,7 @@ Widget build(BuildContext context) {
     mejorResultadoLabel: _mejorResultadoPct != null ? '${_mejorResultadoPct!.round()}%' : '—',
     textColor: textColor,
     secondaryTextColor: secondaryTextColor,
+    onStreakTap: () => _mostrarResumenStreak(context),
   );
 
   Widget buildSubjectCard(Map<String, dynamic> materia) {
@@ -1678,34 +1679,44 @@ Widget build(BuildContext context) {
   }
 
   final double screenWidth = MediaQuery.of(context).size.width;
+  final double screenHeight = MediaQuery.of(context).size.height;
   final bool esEscritorioAncho = screenWidth >= 600;
+  // Modo compacto: pantallas móviles de poca altura (p. ej. 320x568, 360x640)
+  // reciben tarjetas aún más bajas y espacios más ajustados; el resto del
+  // scroll queda como red de seguridad si aun así no entra todo.
+  final bool esAltoReducido = screenHeight < 700;
 
   if (!esEscritorioAncho) {
-    // Diseño móvil aprobado (< 600 px) — estructura sin cambios.
+    final double vGap = esAltoReducido ? 8.0 : 10.0;
+    final double gridAspectRatio = esAltoReducido ? 1.28 : 1.15;
+    // El contenido se envuelve en scroll (como en escritorio) en vez de
+    // confinar la grilla a un Expanded: en móviles normales todo entra sin
+    // desplazamiento visible; en móviles pequeños el scroll actúa como
+    // respaldo seguro sin recortar nada.
     return Scaffold(
       drawer: drawer,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
               header,
               const SizedBox(height: 14),
               continueCard,
-              const SizedBox(height: 14),
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.0,
-                  ),
-                  itemCount: widget.materias.length,
-                  itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
+              SizedBox(height: vGap),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: gridAspectRatio,
                 ),
+                itemCount: widget.materias.length,
+                itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: vGap),
               summary,
             ],
           ),

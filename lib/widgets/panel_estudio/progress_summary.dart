@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'streak_fire_badge.dart';
+
 class ProgressSummary extends StatelessWidget {
   final int materiasIniciadas;
   final int totalMaterias;
@@ -7,6 +9,7 @@ class ProgressSummary extends StatelessWidget {
   final String mejorResultadoLabel;
   final Color textColor;
   final Color secondaryTextColor;
+  final VoidCallback onStreakTap;
 
   const ProgressSummary({
     super.key,
@@ -16,13 +19,19 @@ class ProgressSummary extends StatelessWidget {
     required this.mejorResultadoLabel,
     required this.textColor,
     required this.secondaryTextColor,
+    required this.onStreakTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final String rachaSustantivo = rachaActivaMax == 1 ? 'día' : 'días';
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // Debe verse un poco más grande que la llama del header (72/79/92).
+    final double streakBadgeSize = screenWidth >= 600
+        ? 100.0
+        : (screenWidth <= 340 ? 78.0 : 86.0);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Semantics(
@@ -38,16 +47,13 @@ class ProgressSummary extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Semantics(
-            label: 'Racha máxima: $rachaActivaMax $rachaSustantivo',
-            excludeSemantics: true,
-            child: _StatChip(
-              value: '$rachaActivaMax',
-              label: 'RACHA MÁX.',
-              icon: Icons.local_fire_department,
-              iconColor: Colors.orange,
-              textColor: textColor,
-              secondaryTextColor: secondaryTextColor,
+          child: Center(
+            child: StreakFireBadge(
+              streakDays: rachaActivaMax,
+              onTap: onStreakTap,
+              size: streakBadgeSize,
+              variant: StreakBadgeVariant.summary,
+              captionColor: secondaryTextColor,
             ),
           ),
         ),
@@ -74,16 +80,12 @@ class ProgressSummary extends StatelessWidget {
 class _StatChip extends StatelessWidget {
   final String value;
   final String label;
-  final IconData? icon;
-  final Color? iconColor;
   final Color textColor;
   final Color secondaryTextColor;
 
   const _StatChip({
     required this.value,
     required this.label,
-    this.icon,
-    this.iconColor,
     required this.textColor,
     required this.secondaryTextColor,
   });
@@ -100,26 +102,15 @@ class _StatChip extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 13, color: iconColor ?? textColor),
-                const SizedBox(width: 3),
-              ],
-              Flexible(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
           const SizedBox(height: 3),
           Text(
