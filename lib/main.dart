@@ -27,6 +27,16 @@ import 'data/meteorologia.dart';
 import 'data/reglamentacion.dart';
 
 // =============================================================
+// WIDGETS DE PRESENTACIÓN DEL PANEL DE ESTUDIO
+// =============================================================
+import 'widgets/panel_estudio/app_header.dart';
+import 'widgets/panel_estudio/subject_card.dart';
+import 'widgets/panel_estudio/mode_selector_sheet.dart';
+import 'widgets/panel_estudio/continue_studying_card.dart';
+import 'widgets/panel_estudio/progress_summary.dart';
+import 'widgets/panel_estudio/app_drawer.dart';
+
+// =============================================================
 // MODELOS DE DATOS PARA STREAK MODE E HISTORIAL
 // =============================================================
 
@@ -1488,7 +1498,8 @@ class MainMenu extends StatefulWidget {
 
 class _MainMenuState extends State<MainMenu> {
   Map<String, StreakData> _streakData = {};
-  int _totalStreakExams = 0;
+  List<ExamResult> _examHistory = [];
+  String _userName = '';
 
   @override
   void initState() {
@@ -1498,282 +1509,246 @@ class _MainMenuState extends State<MainMenu> {
 
   Future<void> _loadStreakData() async {
     final streaks = await StorageService.getAllStreakData();
-    final total = await StorageService.getTotalStreakExams();
-    
+    final history = await StorageService.getExamHistory();
+    final prefs = await SharedPreferences.getInstance();
+    final rawUserName = prefs.getString('userName') ?? '';
+
     if (mounted) {
       setState(() {
         _streakData = streaks;
-        _totalStreakExams = total;
+        _examHistory = history;
+        _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
+    }
+  }
+
+  // --- Datos derivados para "Continuar estudiando" y el resumen inferior. ---
+  // Se calculan sobre _examHistory (ya cargado desde StorageService.getExamHistory,
+  // sin persistencia nueva) y _streakData (ya cargado). No se inventa ningún dato.
+
+  ExamResult? get _ultimoResultado {
+    if (_examHistory.isEmpty) return null;
+    return _examHistory.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+  }
+
+  int get _materiasIniciadas => _examHistory.map((e) => e.subject).toSet().length;
+
+  int get _rachaActivaMax {
+    if (_streakData.isEmpty) return 0;
+    return _streakData.values.map((s) => s.streakDays).reduce((a, b) => a > b ? a : b);
+  }
+
+  double? get _mejorResultadoPct {
+    if (_examHistory.isEmpty) return null;
+    double mejor = 0;
+    for (final e in _examHistory) {
+      if (e.totalQuestions <= 0) continue;
+      final pct = (e.score / e.totalQuestions) * 100;
+      if (pct > mejor) mejor = pct;
+    }
+    return mejor;
+  }
+
+  String _modoLabel(String modo) {
+    switch (modo) {
+      case 'test':
+        return 'Test';
+      case 'streak':
+        return 'Racha';
+      case 'practice':
+      default:
+        return 'Práctica';
+    }
+  }
+
+  ({bool tieneIntentos, double? ultimoPct}) _statsMateria(String nombre) {
+    final intentos = _examHistory.where((e) => e.subject == nombre).toList();
+    if (intentos.isEmpty) {
+      return (tieneIntentos: false, ultimoPct: null);
+    }
+    final ultimo = intentos.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+    final ultimoPct = ultimo.totalQuestions > 0 ? (ultimo.score / ultimo.totalQuestions) * 100 : 0.0;
+    return (tieneIntentos: true, ultimoPct: ultimoPct);
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+        (route) => false,
+      );
     }
   }
 
   @override
 Widget build(BuildContext context) {
-  bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+  final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+  final Color textColor = esModoOscuro ? AppColors.darkText : AppColors.lightText;
+  final Color secondaryTextColor = esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text("Panel de Estudio", style: TextStyle(fontWeight: FontWeight.bold)),
-      centerTitle: true,
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Menu button with PopupMenuButton
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu, size: 20),
-            onSelected: (String choice) {
-              switch (choice) {
-                case 'instructions':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
-                  );
-                  break;
-                case 'suggestions':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
-                  );
-                  break;
-                case 'history':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
-                  );
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'instructions',
-                child: Row(
-                  children: [
-                    Icon(Icons.picture_as_pdf, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Ver Instructivo'),
-                  ],
+  final ExamResult? ultimo = _ultimoResultado;
+  final Map<String, dynamic> materiaContinuar = ultimo != null
+      ? widget.materias.firstWhere(
+          (m) => m['nombre'] == ultimo.subject,
+          orElse: () => widget.materias.first,
+        )
+      : widget.materias.first;
+  final double? resultadoContinuarPct =
+      (ultimo != null && ultimo.totalQuestions > 0) ? (ultimo.score / ultimo.totalQuestions) * 100 : null;
+
+  final Widget header = PanelEstudioHeader(
+    userName: _userName,
+    rachaActivaMax: _rachaActivaMax,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    onStreakTap: () => _mostrarResumenStreak(context),
+  );
+
+  final Widget drawer = AppDrawer(
+    userName: _userName,
+    materiasIniciadas: _materiasIniciadas,
+    totalMaterias: widget.materias.length,
+    themeNotifier: themeNotifier,
+    surfaceColor: esModoOscuro ? AppColors.darkCard : Colors.white,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    onOpenInstructions: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaInstructivo()),
+      );
+    },
+    onOpenSuggestions: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaSugerencias()),
+      );
+    },
+    onOpenHistory: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
+      );
+    },
+    onLogout: () => _handleLogout(context),
+  );
+
+  final Widget continueCard = ContinueStudyingCard(
+    hasHistory: ultimo != null,
+    materiaNombre: materiaContinuar['nombre'].toString(),
+    imagenAsset: materiaContinuar['Imagen'].toString(),
+    modoLabel: ultimo != null ? _modoLabel(ultimo.mode) : null,
+    resultadoPct: resultadoContinuarPct,
+    onTap: () => _mostrarSeleccionModo(context, materiaContinuar),
+    darkGradientColor: AppColors.darkCard,
+    darkTextColor: AppColors.darkText,
+    lightTextColor: AppColors.lightText,
+  );
+
+  final Widget summary = ProgressSummary(
+    materiasIniciadas: _materiasIniciadas,
+    totalMaterias: widget.materias.length,
+    rachaActivaMax: _rachaActivaMax,
+    mejorResultadoLabel: _mejorResultadoPct != null ? '${_mejorResultadoPct!.round()}%' : '—',
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+  );
+
+  Widget buildSubjectCard(Map<String, dynamic> materia) {
+    final streakInfo = _streakData[materia['nombre']];
+    final streakDays = streakInfo?.streakDays ?? 0;
+    final nombreMateria = materia['nombre'].toString();
+    final stats = _statsMateria(nombreMateria);
+
+    return SubjectCard(
+      nombre: nombreMateria,
+      imagenAsset: materia['Imagen'].toString(),
+      streakDays: streakDays,
+      tieneIntentos: stats.tieneIntentos,
+      ultimoPct: stats.ultimoPct,
+      esMateriaActual: ultimo != null && nombreMateria == ultimo.subject,
+      onTap: () => _mostrarSeleccionModo(context, materia),
+      darkGradientColor: AppColors.darkCard,
+      darkTextColor: AppColors.darkText,
+      lightTextColor: AppColors.lightText,
+    );
+  }
+
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final bool esEscritorioAncho = screenWidth >= 600;
+
+  if (!esEscritorioAncho) {
+    // Diseño móvil aprobado (< 600 px) — estructura sin cambios.
+    return Scaffold(
+      drawer: drawer,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              header,
+              const SizedBox(height: 14),
+              continueCard,
+              const SizedBox(height: 14),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: widget.materias.length,
+                  itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
                 ),
               ),
-              const PopupMenuItem<String>(
-                value: 'suggestions',
-                child: Row(
-                  children: [
-                    Icon(Icons.feedback_outlined, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text('Buzón de Sugerencias'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'history',
-                child: Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.indigo),
-                    SizedBox(width: 8),
-                    Text('Historial de Exámenes'),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 14),
+              summary,
             ],
           ),
-          // Streak fire icon - only show if there are streaks
-          if (_totalStreakExams > 0)
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: InkWell(
-                onTap: () => _mostrarResumenStreak(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange, width: 1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.local_fire_department, color: Colors.orange, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        "$_totalStreakExams",
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-      actions: [
-        ValueListenableBuilder<ThemeMode>(
-          valueListenable: themeNotifier,
-          builder: (context, currentMode, child) {
-            // Lógica para determinar si el switch debe estar activo
-            bool isDark = currentMode == ThemeMode.dark || 
-                (currentMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
-                
-            return Switch(
-              value: isDark,
-              activeColor: Colors.amber,
-              activeTrackColor: Colors.black45,
-              inactiveThumbColor: Colors.indigo,
-              onChanged: (value) {
-                themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
-              },
-            );
-          },
         ),
-        IconButton(
-          icon: const Icon(Icons.logout, color: Colors.red),
-          onPressed: () async {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
-            await prefs.clear();
-            if (context.mounted) {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
-                (route) => false,
-              );
-            }
-          }
-        )
-      ]
-    ),
+      ),
+    );
+  }
+
+  // Escritorio / web ancho (>= 600 px): contenido centrado, ancho máximo,
+  // todo dentro de un único scroll (encabezado, continuar, materias y resumen).
+  return Scaffold(
+    drawer: drawer,
     body: SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // GridView de materias
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.0,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1150),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                const SizedBox(height: 14),
+                continueCard,
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: widget.materias.length,
+                  itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
                 ),
-                itemCount: widget.materias.length,
-                itemBuilder: (context, index) {
-                  final materia = widget.materias[index];
-                  final streakInfo = _streakData[materia['nombre']];
-                  final streakDays = streakInfo?.streakDays ?? 0;
-                  
-                  return InkWell(
-                    onTap: () => _mostrarSeleccionModo(context, materia),
-                    child: Card(
-                      elevation: 4,
-                      shadowColor: esModoOscuro ? Colors.black26 : Colors.black12,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: esModoOscuro
-                                ? [
-                                    AppColors.darkCard.withOpacity(0.9),
-                                    AppColors.darkCard.withOpacity(0.7),
-                                  ]
-                                : [
-                                    Colors.white.withOpacity(0.9),
-                                    Colors.white.withOpacity(0.7),
-                                  ],
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Center(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    bool esEscritorio = constraints.maxWidth > 600;
-                                    double escala = esEscritorio ? 0.85 : 1.15;
-                                    return Transform.scale(
-                                      scale: escala,
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          Image.asset(
-                                            materia["Imagen"].toString(),
-                                            cacheWidth: 800,
-                                            filterQuality: FilterQuality.high,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-                                          ),
-                                          if (streakDays > 0 && streakInfo != null)
-                                            Positioned(
-                                              top: 4,
-                                              right: 4,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    colors: [Colors.orange.shade400, Colors.red.shade400],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.orange.withOpacity(0.5),
-                                                      blurRadius: 8,
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(Icons.local_fire_department, color: Colors.white, size: 11),
-                                                    const SizedBox(width: 2),
-                                                    Text(
-                                                      "$streakDays",
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 10,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(6.0),
-                              child: Text(
-                                materia['nombre'].toString(),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold, 
-                                  fontSize: 12,
-                                  color: esModoOscuro ? AppColors.darkText : AppColors.lightText
-                                )
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                const SizedBox(height: 16),
+                summary,
+                const SizedBox(height: 28),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),
@@ -1892,68 +1867,36 @@ Widget build(BuildContext context) {
   void _mostrarSeleccionModo(BuildContext context, Map<String, dynamic> materia) async {
     final globalStreak = await StorageService.getGlobalStreakData();
     final lives = globalStreak.lives;
-    final hasLives = lives > 0;
+
+    final dynamic poolRaw = materia['pool'];
+    final int totalPreguntasPool = poolRaw is List ? poolRaw.length : 0;
+    final int limiteTest = (materia['limite'] as int?) ?? 16;
+    final int preguntasTest = totalPreguntasPool > 0 && totalPreguntasPool < limiteTest
+        ? totalPreguntasPool
+        : limiteTest;
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.school, color: Colors.indigo),
-              title: const Text("Modo Práctica"),
-              subtitle: const Text("Retroalimentación inmediata."),
-              onTap: () {
-                Navigator.pop(context);
-                _irAlQuiz(context, materia, false);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.timer, color: Colors.orange),
-              title: const Text("Modo Test (Examen)"),
-              subtitle: const Text("Solucionario solo al final."),
-              onTap: () {
-                Navigator.pop(context);
-                _irAlQuiz(context, materia, true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.local_fire_department, color: Colors.red),
-              title: Row(
-                children: [
-                  const Text("¡Racha!"),
-                  const SizedBox(width: 8),
-                  Row(
-                    children: List.generate(3, (index) {
-                      return Icon(
-                        index < lives ? Icons.favorite : Icons.favorite_border,
-                        color: Colors.red,
-                        size: 16,
-                      );
-                    }),
-                  ),
-                ],
-              ),
-              subtitle: Text(
-                hasLives 
-                    ? "Examen cronometrado de racha diaria." 
-                    : "No tienes vidas disponibles. Espera a que se recarguen (00:00).",
-                style: TextStyle(
-                  color: hasLives ? null : Colors.red,
-                  fontWeight: hasLives ? null : FontWeight.bold,
-                ),
-              ),
-              onTap: hasLives ? () async {
-                Navigator.pop(context);
-                await _irAlStreakMode(context, materia);
-              } : null,
-              enabled: hasLives,
-            ),
-          ],
-        ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ModeSelectorSheet(
+        materiaNombre: materia['nombre'].toString(),
+        preguntasPractica: totalPreguntasPool,
+        preguntasTest: preguntasTest,
+        lives: lives,
+        rachaActiva: _rachaActivaMax,
+        onPractice: () {
+          Navigator.pop(context);
+          _irAlQuiz(context, materia, false);
+        },
+        onTest: () {
+          Navigator.pop(context);
+          _irAlQuiz(context, materia, true);
+        },
+        onRacha: () async {
+          Navigator.pop(context);
+          await _irAlStreakMode(context, materia);
+        },
       ),
     );
   }
