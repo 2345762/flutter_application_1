@@ -85,7 +85,7 @@ class SubjectCard extends StatelessWidget {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         bool esEscritorio = constraints.maxWidth > 600;
-                        double escala = esEscritorio ? 0.85 : 1.15;
+                        double escala = esEscritorio ? 0.85 : 0.95;
                         return Transform.scale(
                           scale: escala,
                           child: Stack(
@@ -156,7 +156,7 @@ class SubjectCard extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 0, 6, 2),
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 1),
                   child: Text(
                     nombre,
                     textAlign: TextAlign.center,
@@ -164,14 +164,14 @@ class SubjectCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      height: 1.15,
+                      fontSize: 12,
+                      height: 1.1,
                       color: textColor,
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     tieneIntentos
                         ? 'Último: ${ultimoPct!.round()}%'
