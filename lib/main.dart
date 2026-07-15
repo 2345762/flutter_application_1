@@ -1868,11 +1868,23 @@ Widget build(BuildContext context) {
     final globalStreak = await StorageService.getGlobalStreakData();
     final lives = globalStreak.lives;
 
+    final dynamic poolRaw = materia['pool'];
+    final int totalPreguntasPool = poolRaw is List ? poolRaw.length : 0;
+    final int limiteTest = (materia['limite'] as int?) ?? 16;
+    final int preguntasTest = totalPreguntasPool > 0 && totalPreguntasPool < limiteTest
+        ? totalPreguntasPool
+        : limiteTest;
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => ModeSelectorSheet(
+        materiaNombre: materia['nombre'].toString(),
+        preguntasPractica: totalPreguntasPool,
+        preguntasTest: preguntasTest,
         lives: lives,
+        rachaActiva: _rachaActivaMax,
         onPractice: () {
           Navigator.pop(context);
           _irAlQuiz(context, materia, false);
