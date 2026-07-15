@@ -26,7 +26,11 @@ class PanelEstudioHeader extends StatelessWidget {
           backgroundColor: Colors.indigo,
           child: Text(
             userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -39,7 +43,11 @@ class PanelEstudioHeader extends StatelessWidget {
                 'Hola, $userName',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               Text(
                 'ENCARGADO DE OPERACIONES DE VUELO',
@@ -56,26 +64,48 @@ class PanelEstudioHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        InkWell(
-          onTap: onStreakTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.2),
+        Semantics(
+          button: true,
+          label: 'Ver resumen de rachas. Racha máxima: $rachaActivaMax días.',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onStreakTap,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.orange, width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.local_fire_department, color: Colors.orange, size: 14),
-                const SizedBox(width: 3),
-                Text(
-                  '$rachaActivaMax',
-                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                alignment: Alignment.center,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orange,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$rachaActivaMax',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -84,7 +114,7 @@ class PanelEstudioHeader extends StatelessWidget {
           button: true,
           label: 'Abrir menú',
           child: Material(
-            color: textColor.withOpacity(0.08),
+            color: textColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),

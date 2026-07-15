@@ -41,7 +41,10 @@ class AppDrawer extends StatelessWidget {
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
       child: Icon(icon, color: color, size: 19),
     );
   }
@@ -49,9 +52,13 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
-    final double drawerWidth = (screenWidth * 0.83) > 320 ? 320 : (screenWidth * 0.83);
-    final Color dividerColor = textColor.withOpacity(0.08);
-    final double progreso = totalMaterias > 0 ? materiasIniciadas / totalMaterias : 0.0;
+    final double drawerWidth = (screenWidth * 0.83) > 320
+        ? 320
+        : (screenWidth * 0.83);
+    final Color dividerColor = textColor.withValues(alpha: 0.08);
+    final double progreso = totalMaterias > 0
+        ? materiasIniciadas / totalMaterias
+        : 0.0;
 
     return Drawer(
       width: drawerWidth,
@@ -70,7 +77,11 @@ class AppDrawer extends StatelessWidget {
                     backgroundColor: Colors.indigo,
                     child: Text(
                       userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -78,7 +89,11 @@ class AppDrawer extends StatelessWidget {
                     userName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
                   ),
                   Text(
                     'ENCARGADO DE OPERACIONES DE VUELO',
@@ -92,25 +107,36 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progreso,
-                            minHeight: 6,
-                            backgroundColor: textColor.withOpacity(0.1),
-                            valueColor: const AlwaysStoppedAnimation<Color>(historialColor),
+                  Semantics(
+                    label:
+                        'Materias iniciadas: $materiasIniciadas de $totalMaterias',
+                    excludeSemantics: true,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progreso,
+                              minHeight: 6,
+                              backgroundColor: textColor.withValues(alpha: 0.1),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                historialColor,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$materiasIniciadas/$totalMaterias',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: secondaryTextColor),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          '$materiasIniciadas/$totalMaterias',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -125,8 +151,17 @@ class AppDrawer extends StatelessWidget {
                     label: 'Ver Instructivo',
                     child: ListTile(
                       minVerticalPadding: 14,
-                      leading: _iconBadge(Icons.picture_as_pdf, instructivoColor),
-                      title: Text('Ver Instructivo', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                      leading: _iconBadge(
+                        Icons.picture_as_pdf,
+                        instructivoColor,
+                      ),
+                      title: Text(
+                        'Ver Instructivo',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       onTap: () => _selectAndClose(context, onOpenInstructions),
                     ),
                   ),
@@ -135,8 +170,17 @@ class AppDrawer extends StatelessWidget {
                     label: 'Abrir Buzón de Sugerencias',
                     child: ListTile(
                       minVerticalPadding: 14,
-                      leading: _iconBadge(Icons.feedback_outlined, sugerenciasColor),
-                      title: Text('Buzón de Sugerencias', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                      leading: _iconBadge(
+                        Icons.feedback_outlined,
+                        sugerenciasColor,
+                      ),
+                      title: Text(
+                        'Buzón de Sugerencias',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       onTap: () => _selectAndClose(context, onOpenSuggestions),
                     ),
                   ),
@@ -146,36 +190,64 @@ class AppDrawer extends StatelessWidget {
                     child: ListTile(
                       minVerticalPadding: 14,
                       leading: _iconBadge(Icons.history, historialColor),
-                      title: Text('Historial de Exámenes', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                      title: Text(
+                        'Historial de Exámenes',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       onTap: () => _selectAndClose(context, onOpenHistory),
                     ),
                   ),
-                  Divider(height: 24, indent: 20, endIndent: 20, color: dividerColor),
+                  Divider(
+                    height: 24,
+                    indent: 20,
+                    endIndent: 20,
+                    color: dividerColor,
+                  ),
                   ValueListenableBuilder<ThemeMode>(
                     valueListenable: themeNotifier,
                     builder: (context, currentMode, child) {
-                      final bool isDark = currentMode == ThemeMode.dark ||
+                      final bool isDark =
+                          currentMode == ThemeMode.dark ||
                           (currentMode == ThemeMode.system &&
-                              MediaQuery.of(context).platformBrightness == Brightness.dark);
+                              MediaQuery.of(context).platformBrightness ==
+                                  Brightness.dark);
                       return Semantics(
                         button: true,
                         toggled: isDark,
-                        label: isDark ? 'Activar modo claro' : 'Activar modo oscuro',
+                        label: isDark
+                            ? 'Activar modo claro'
+                            : 'Activar modo oscuro',
                         child: ListTile(
                           minVerticalPadding: 14,
-                          leading: _iconBadge(Icons.brightness_6_outlined, secondaryTextColor),
-                          title: Text('Tema oscuro', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                          leading: _iconBadge(
+                            Icons.brightness_6_outlined,
+                            secondaryTextColor,
+                          ),
+                          title: Text(
+                            'Tema oscuro',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           trailing: Switch(
                             value: isDark,
-                            activeColor: Colors.amber,
+                            activeThumbColor: Colors.amber,
                             activeTrackColor: Colors.black45,
                             inactiveThumbColor: Colors.indigo,
                             onChanged: (value) {
-                              themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+                              themeNotifier.value = value
+                                  ? ThemeMode.dark
+                                  : ThemeMode.light;
                             },
                           ),
                           onTap: () {
-                            themeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+                            themeNotifier.value = isDark
+                                ? ThemeMode.light
+                                : ThemeMode.dark;
                           },
                         ),
                       );
@@ -186,8 +258,17 @@ class AppDrawer extends StatelessWidget {
                     label: 'Acerca de la aplicación',
                     child: ListTile(
                       minVerticalPadding: 14,
-                      leading: _iconBadge(Icons.info_outline, secondaryTextColor),
-                      title: Text('Acerca de la aplicación', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                      leading: _iconBadge(
+                        Icons.info_outline,
+                        secondaryTextColor,
+                      ),
+                      title: Text(
+                        'Acerca de la aplicación',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       onTap: () {
                         showAboutDialog(
                           context: context,
@@ -206,8 +287,14 @@ class AppDrawer extends StatelessWidget {
               label: 'Cerrar sesión',
               child: ListTile(
                 minVerticalPadding: 14,
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Cerrar sesión', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                leading: _iconBadge(Icons.logout, Colors.red),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 onTap: () => _selectAndClose(context, onLogout),
               ),
             ),

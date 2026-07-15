@@ -38,8 +38,12 @@ class ModeSelectorSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     final Color surface = esModoOscuro ? const Color(0xFF1E293B) : Colors.white;
-    final Color textColor = esModoOscuro ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
-    final Color secondaryTextColor = esModoOscuro ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final Color textColor = esModoOscuro
+        ? const Color(0xFFE2E8F0)
+        : const Color(0xFF0F172A);
+    final Color secondaryTextColor = esModoOscuro
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF475569);
     final bool hasLives = lives > 0;
 
     final double maxHeight = MediaQuery.of(context).size.height * 0.85;
@@ -66,18 +70,24 @@ class ModeSelectorSheet extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 14),
                   decoration: BoxDecoration(
-                    color: secondaryTextColor.withOpacity(0.4),
+                    color: secondaryTextColor.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
               Text(
                 'Elige tu modo de estudio',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 materiaNombre,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
               ),
               const SizedBox(height: 14),
@@ -89,7 +99,10 @@ class ModeSelectorSheet extends StatelessWidget {
                   icon: Icons.school,
                   title: 'Modo Práctica',
                   description: 'Retroalimentación inmediata en cada pregunta',
-                  trailing: _CountBadge(text: '$preguntasPractica preguntas', color: practicaColor),
+                  trailing: _CountBadge(
+                    text: '$preguntasPractica preguntas',
+                    color: practicaColor,
+                  ),
                   onTap: onPractice,
                   textColor: textColor,
                   secondaryTextColor: secondaryTextColor,
@@ -104,7 +117,10 @@ class ModeSelectorSheet extends StatelessWidget {
                   icon: Icons.timer_outlined,
                   title: 'Modo Test (Examen)',
                   description: 'Solucionario disponible solo al finalizar',
-                  trailing: _CountBadge(text: '$preguntasTest preguntas', color: testColor),
+                  trailing: _CountBadge(
+                    text: '$preguntasTest preguntas',
+                    color: testColor,
+                  ),
                   onTap: onTest,
                   textColor: textColor,
                   secondaryTextColor: secondaryTextColor,
@@ -135,16 +151,32 @@ class ModeSelectorSheet extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: hasLives ? corazonDisponible : secondaryTextColor,
+                            color: hasLives
+                                ? corazonDisponible
+                                : secondaryTextColor,
                           ),
                         ),
                         if (rachaActiva > 0) ...[
-                          Text('  ·  ', style: TextStyle(color: secondaryTextColor, fontSize: 11)),
-                          Icon(Icons.local_fire_department, size: 13, color: rachaColor),
+                          Text(
+                            '  ·  ',
+                            style: TextStyle(
+                              color: secondaryTextColor,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Icon(
+                            Icons.local_fire_department,
+                            size: 13,
+                            color: rachaColor,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             'Racha activa: $rachaActiva',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: rachaColor),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: rachaColor,
+                            ),
                           ),
                         ],
                       ],
@@ -195,7 +227,7 @@ class _ModeCard extends StatelessWidget {
     return Opacity(
       opacity: opacity,
       child: Material(
-        color: color.withOpacity(0.07),
+        color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -205,7 +237,7 @@ class _ModeCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withOpacity(0.35)),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +245,10 @@ class _ModeCard extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: BoxDecoration(color: color.withOpacity(0.18), shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
                   child: Icon(icon, color: color, size: 21),
                 ),
                 const SizedBox(width: 12),
@@ -226,16 +261,27 @@ class _ModeCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               title,
-                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
                             ),
                           ),
-                          trailing,
+                          const SizedBox(width: 6),
+                          Flexible(child: trailing),
                         ],
                       ),
                       const SizedBox(height: 3),
                       Text(
                         description,
-                        style: TextStyle(fontSize: 11.5, color: secondaryTextColor, height: 1.3),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: secondaryTextColor,
+                          height: 1.3,
+                        ),
                       ),
                       if (extra != null) extra!,
                     ],
@@ -261,6 +307,8 @@ class _CountBadge extends StatelessWidget {
     return Text(
       text,
       textAlign: TextAlign.right,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
     );
   }
@@ -282,7 +330,9 @@ class _HeartsRow extends StatelessWidget {
           child: Icon(
             disponible ? Icons.favorite : Icons.favorite_border,
             size: 15,
-            color: disponible ? ModeSelectorSheet.corazonDisponible : ModeSelectorSheet.corazonGastado,
+            color: disponible
+                ? ModeSelectorSheet.corazonDisponible
+                : ModeSelectorSheet.corazonGastado,
           ),
         );
       }),
