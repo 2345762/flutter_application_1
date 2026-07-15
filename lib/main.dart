@@ -172,6 +172,66 @@ class ExamResult {
   }
 }
 
+class PartialExamProgress {
+  final String id;
+  final String subject;
+  final DateTime date;
+  final int totalQuestions;
+  final int answeredQuestions;
+  final String mode; // 'practice', 'test', or 'streak'
+  final List<int?> userAnswers; // Index of user's answer for each question (null if not answered)
+  final int timeSpentSeconds;
+  final List<Map<String, dynamic>>? questionPool; // Store the actual questions to restore the quiz
+  final int currentQuestionIndex; // Track which question the user was on
+
+  PartialExamProgress({
+    required this.id,
+    required this.subject,
+    required this.date,
+    required this.totalQuestions,
+    required this.answeredQuestions,
+    required this.mode,
+    required this.userAnswers,
+    required this.timeSpentSeconds,
+    this.questionPool, // Optional: can be null if we just want to show progress
+    this.currentQuestionIndex = 0, // Default to first question
+  });
+
+  double get completionPercentage => totalQuestions > 0 ? answeredQuestions / totalQuestions : 0.0;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'subject': subject,
+      'date': date.toIso8601String(),
+      'totalQuestions': totalQuestions,
+      'answeredQuestions': answeredQuestions,
+      'mode': mode,
+      'userAnswers': userAnswers,
+      'timeSpentSeconds': timeSpentSeconds,
+      'questionPool': questionPool, // Include question pool for restoring
+      'currentQuestionIndex': currentQuestionIndex,
+    };
+  }
+
+  factory PartialExamProgress.fromJson(Map<String, dynamic> json) {
+    return PartialExamProgress(
+      id: json['id'] as String,
+      subject: json['subject'] as String,
+      date: DateTime.parse(json['date'] as String),
+      totalQuestions: json['totalQuestions'] as int,
+      answeredQuestions: json['answeredQuestions'] as int,
+      mode: json['mode'] as String,
+      userAnswers: List<int?>.from(json['userAnswers'] as List),
+      timeSpentSeconds: json['timeSpentSeconds'] as int,
+      questionPool: json['questionPool'] != null 
+          ? List<Map<String, dynamic>>.from(json['questionPool'] as List)
+          : null,
+      currentQuestionIndex: json['currentQuestionIndex'] as int? ?? 0,
+    );
+  }
+}
+
 // =============================================================
 // SERVICIOS DE ALMACENAMIENTO
 // =============================================================
@@ -181,6 +241,7 @@ class StorageService {
   static const String _globalStreakKey = 'global_streak_data';
   static const String _examHistoryKey = 'exam_history';
   static const String _streakOnboardingShown = 'streak_onboarding_shown';
+  static const String _partialProgressKey = 'partial_exam_progress';
 
   static Future<void> saveStreakData(StreakData streakData) async {
     final prefs = await SharedPreferences.getInstance();
@@ -519,6 +580,26 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_streakOnboardingShown, true);
   }
+
+  static Future<void> savePartialProgress(PartialExamProgress progress) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_partialProgressKey, json.encode(progress.toJson()));
+  }
+
+  static Future<PartialExamProgress?> getPartialProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final progressStr = prefs.getString(_partialProgressKey);
+    
+    if (progressStr != null) {
+      return PartialExamProgress.fromJson(json.decode(progressStr));
+    }
+    return null;
+  }
+
+  static Future<void> clearPartialProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_partialProgressKey);
+  }
 }
 
 // =============================================================
@@ -584,9 +665,9 @@ void main() async {
     if (esPrimeraVez) {
       pantallaInicial = const PantallaPrimeraVez();
     } else if (isLoggedIn) {
-      pantallaInicial = WelcomeScreen(nombre: userName);
+      pantallaInicial = WelcomeScreen(nombre: userName, themeNotifier: themeNotifier);
     } else {
-      pantallaInicial = const MiPantallaLogin();
+      pantallaInicial = MiPantallaLogin(themeNotifier: themeNotifier);
     }
 
     runApp(QuizApp(startWidget: pantallaInicial));
@@ -616,7 +697,7 @@ class _PantallaPrimeraVezState extends State<PantallaPrimeraVez> {
         context,
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 800),
-          pageBuilder: (_, __, ___) => const MiPantallaLogin(),
+          pageBuilder: (_, __, ___) => MiPantallaLogin(themeNotifier: themeNotifier),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -790,7 +871,8 @@ String formatearNombreDesdeCorreo(String correo) {
 
 class WelcomeScreen extends StatefulWidget {
   final String nombre;
-  const WelcomeScreen({super.key, required this.nombre});
+  final ValueNotifier<ThemeMode> themeNotifier;
+  const WelcomeScreen({super.key, required this.nombre, required this.themeNotifier});
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
@@ -863,7 +945,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
             );
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+              MaterialPageRoute(builder: (context) => MiPantallaLogin(themeNotifier: widget.themeNotifier)),
             );
           }
           return; // Detenemos la función para que no avance al MainMenu
@@ -877,7 +959,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => MainMenu()), 
+        MaterialPageRoute(builder: (context) => MainMenu(themeNotifier: themeNotifier)), 
       );
     }
   }
@@ -988,14 +1070,15 @@ Future<void> cerrarSesion(BuildContext context) async {
   if (context.mounted) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+      MaterialPageRoute(builder: (context) => MiPantallaLogin(themeNotifier: themeNotifier)),
     );
   }
 }
 
 // 3. PANTALLA DE LOGIN
 class MiPantallaLogin extends StatefulWidget {
-  const MiPantallaLogin({super.key});
+  final ValueNotifier<ThemeMode> themeNotifier;
+  const MiPantallaLogin({super.key, required this.themeNotifier});
 
   @override
   _MiPantallaLoginState createState() => _MiPantallaLoginState();
@@ -1121,7 +1204,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => WelcomeScreen(nombre: nombre)),
+          MaterialPageRoute(builder: (context) => WelcomeScreen(nombre: nombre, themeNotifier: widget.themeNotifier)),
         );
       }
     } else {
@@ -1140,13 +1223,26 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // Responsive dimensions
+    final logoWidth = screenWidth < 360 ? screenWidth * 0.85 : 360.0;
+    final logoHeight = screenWidth < 360 ? 100.0 : 120.0;
+    final logoTopPadding = screenHeight < 600 ? 40.0 : 70.0;
+    final loginWidth = screenWidth < 400 ? screenWidth * 0.9 : 400.0;
+    final loginPadding = screenWidth < 360 ? 20.0 : 35.0;
+    final titleFontSize = screenWidth < 360 ? 24.0 : 32.0;
+    final spacingBelowLogo = screenHeight < 600 ? 200.0 : 280.0;
+    
     return Scaffold(
       backgroundColor: const Color(0xFF0A1128), // Fondo azul oscuro
       body: Stack(
         children: [
           // 1. LOGO: Independiente, sin empujar al login
           Positioned(
-            top: 70, // Ajusta este valor para subir/bajar el logo
+            top: logoTopPadding, // Ajusta este valor para subir/bajar el logo
             left: 0,
             right: 0,
             child: TweenAnimationBuilder<double>(
@@ -1169,10 +1265,10 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                   
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Desenfoca lo que está detrás
                   child: Container(
-                    width: 360, 
-                    height: 120,
+                    width: logoWidth, 
+                    height: logoHeight,
                     
-                    padding: const EdgeInsets.all(20), // Espacio entre el logo y el borde
+                    padding: EdgeInsets.all(screenWidth < 360 ? 15.0 : 20.0), // Espacio entre el logo y el borde
                     decoration: BoxDecoration(
   
                       gradient: LinearGradient(
@@ -1202,7 +1298,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                     ),
             child: Image.asset(
               'assets/PRECADET_LOGO.png',
-              height: 100,
+              height: screenWidth < 360 ? 80.0 : 100.0,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.high,
             ),
@@ -1235,16 +1331,16 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                   children: [
                     // --- AJUSTA ESTE VALOR PARA SUBIR O BAJAR ---
                     // Un valor más bajo (ej. 200) acercará el login al logo
-                    const SizedBox(height:280), 
+                    SizedBox(height: spacingBelowLogo), 
                     
                     ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                         child: Container(
-                          width: 400,
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          padding: const EdgeInsets.all(35),
+                          width: loginWidth,
+                          margin: EdgeInsets.symmetric(horizontal: screenWidth < 360 ? 15.0 : 20.0),
+                          padding: EdgeInsets.all(loginPadding),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(24),
@@ -1263,26 +1359,26 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                               Text(
                                 "Iniciar sesión",
                                 style: GoogleFonts.inter(
-                                  fontSize: 32,
+                                  fontSize: titleFontSize,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 30),
+                              SizedBox(height: screenWidth < 360 ? 20.0 : 30.0),
                               _buildTextField(
                                 controller: _nombreController,
                                 hint: "Tu correo institucional",
                                 icon: Icons.mail_outline,
                                 isEmail: true,
                               ),
-                              const SizedBox(height: 20),
+                              SizedBox(height: screenWidth < 360 ? 15.0 : 20.0),
                               _buildTextField(
                                 controller: _codigoController,
                                 hint: "Código",
                                 icon: Icons.lock_outline,
                                 isPassword: true,
                               ),
-                              const SizedBox(height: 20),
+                              SizedBox(height: screenWidth < 360 ? 15.0 : 20.0),
                               Row(
                                 children: [
                                   Theme(
@@ -1298,10 +1394,10 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                                   const Text("Recuérdame", style: TextStyle(color: Colors.white70)),
                                 ],
                               ),
-                              const SizedBox(height: 30),
+                              SizedBox(height: screenWidth < 360 ? 20.0 : 30.0),
                               SizedBox(
                                 width: double.infinity,
-                                height: 55,
+                                height: screenWidth < 360 ? 50.0 : 55.0,
                                 child: ElevatedButton(
                                   onPressed: ingresarApp,
                                   style: ElevatedButton.styleFrom(
@@ -1490,7 +1586,9 @@ class MainMenu extends StatefulWidget {
     {'nombre': 'REGLAMENTACIÓN', 'Imagen': "assets/REGLAMENTACION_SIN_FONDO.png", 'pool': poolreglamentacion, 'limite': 25},
   ];
 
-  MainMenu({super.key});
+  final ValueNotifier<ThemeMode> themeNotifier;
+
+  MainMenu({super.key, required this.themeNotifier});
 
   @override
   State<MainMenu> createState() => _MainMenuState();
@@ -1499,6 +1597,7 @@ class MainMenu extends StatefulWidget {
 class _MainMenuState extends State<MainMenu> {
   Map<String, StreakData> _streakData = {};
   List<ExamResult> _examHistory = [];
+  PartialExamProgress? _partialProgress;
   String _userName = '';
 
   @override
@@ -1510,6 +1609,7 @@ class _MainMenuState extends State<MainMenu> {
   Future<void> _loadStreakData() async {
     final streaks = await StorageService.getAllStreakData();
     final history = await StorageService.getExamHistory();
+    final partialProgress = await StorageService.getPartialProgress();
     final prefs = await SharedPreferences.getInstance();
     final rawUserName = prefs.getString('userName') ?? '';
 
@@ -1517,6 +1617,7 @@ class _MainMenuState extends State<MainMenu> {
       setState(() {
         _streakData = streaks;
         _examHistory = history;
+        _partialProgress = partialProgress;
         _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
     }
@@ -1529,6 +1630,64 @@ class _MainMenuState extends State<MainMenu> {
   ExamResult? get _ultimoResultado {
     if (_examHistory.isEmpty) return null;
     return _examHistory.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+  }
+
+  // Get the most recent subject (from either completed exam or partial progress)
+  String? get _ultimaMateria {
+    final ultimoExamen = _ultimoResultado?.subject;
+    final progresoParcial = _partialProgress?.subject;
+    
+    if (ultimoExamen == null && progresoParcial == null) return null;
+    
+    // Compare dates to determine which is more recent
+    final ultimoExamenDate = _ultimoResultado?.date;
+    final progresoParcialDate = _partialProgress?.date;
+    
+    if (ultimoExamenDate == null && progresoParcialDate == null) return ultimoExamen;
+    if (ultimoExamenDate == null) return progresoParcial;
+    if (progresoParcialDate == null) return ultimoExamen;
+    
+    return ultimoExamenDate.isAfter(progresoParcialDate) ? ultimoExamen : progresoParcial;
+  }
+
+  // Get the completion percentage for the most recent activity
+  double? get _ultimoProgresoPct {
+    final ultimoExamenDate = _ultimoResultado?.date;
+    final progresoParcialDate = _partialProgress?.date;
+    
+    if (ultimoExamenDate == null && progresoParcialDate == null) return null;
+    if (ultimoExamenDate == null) return _partialProgress?.completionPercentage ?? 0.0;
+    if (progresoParcialDate == null) {
+      // For completed exams, return the score percentage
+      final ultimo = _ultimoResultado;
+      if (ultimo != null && ultimo.totalQuestions > 0) {
+        return (ultimo.score / ultimo.totalQuestions) * 100;
+      }
+      return null;
+    }
+    
+    // Compare dates to determine which is more recent
+    if (ultimoExamenDate.isAfter(progresoParcialDate)) {
+      final ultimo = _ultimoResultado;
+      if (ultimo != null && ultimo.totalQuestions > 0) {
+        return (ultimo.score / ultimo.totalQuestions) * 100;
+      }
+      return null;
+    } else {
+      return _partialProgress?.completionPercentage ?? 0.0;
+    }
+  }
+
+  // Get the mode of the most recent activity
+  String? get _ultimoModo {
+    final ultimoExamenDate = _ultimoResultado?.date;
+    final progresoParcialDate = _partialProgress?.date;
+    
+    if (ultimoExamenDate == null && progresoParcialDate == null) return null;
+    if (ultimoExamenDate == null) return _partialProgress?.mode;
+    if (progresoParcialDate == null) return _ultimoResultado?.mode;
+    
+    return ultimoExamenDate.isAfter(progresoParcialDate) ? _ultimoResultado?.mode : _partialProgress?.mode;
   }
 
   int get _materiasIniciadas => _examHistory.map((e) => e.subject).toSet().length;
@@ -1577,9 +1736,40 @@ class _MainMenuState extends State<MainMenu> {
     if (context.mounted) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MiPantallaLogin()),
+        MaterialPageRoute(builder: (context) => MiPantallaLogin(themeNotifier: widget.themeNotifier)),
         (route) => false,
       );
+    }
+  }
+
+  Future<void> _continuarEstudio(BuildContext context, Map<String, dynamic> materia) async {
+    // Check if there's partial progress
+    final partialProgress = await StorageService.getPartialProgress();
+    
+    if (partialProgress != null && 
+        partialProgress.subject == materia['nombre'].toString() &&
+        partialProgress.questionPool != null) {
+      
+      // Directly continue the quiz without showing mode selection
+      final isTestMode = partialProgress.mode == 'test';
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizPage(
+            preguntasRecibidas: partialProgress.questionPool!,
+            tituloMateria: materia['nombre'].toString(),
+            isTestMode: isTestMode,
+            partialProgress: partialProgress,
+          ),
+        ),
+      ).then((_) {
+        // Refresh data when returning from quiz
+        _loadStreakData();
+      });
+    } else {
+      // If no partial progress or it doesn't match, show mode selection
+      _mostrarSeleccionModo(context, materia);
     }
   }
 
@@ -1589,15 +1779,27 @@ Widget build(BuildContext context) {
   final Color textColor = esModoOscuro ? AppColors.darkText : AppColors.lightText;
   final Color secondaryTextColor = esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-  final ExamResult? ultimo = _ultimoResultado;
-  final Map<String, dynamic> materiaContinuar = ultimo != null
+  // Use the most recent activity (completed exam or partial progress)
+  final String? ultimaMateria = _ultimaMateria;
+  final String? ultimoModo = _ultimoModo;
+  final double? ultimoProgresoPct = _ultimoProgresoPct;
+  
+  final Map<String, dynamic> materiaContinuar = ultimaMateria != null
       ? widget.materias.firstWhere(
-          (m) => m['nombre'] == ultimo.subject,
+          (m) => m['nombre'] == ultimaMateria,
           orElse: () => widget.materias.first,
         )
       : widget.materias.first;
-  final double? resultadoContinuarPct =
-      (ultimo != null && ultimo.totalQuestions > 0) ? (ultimo.score / ultimo.totalQuestions) * 100 : null;
+  
+  // Determine if we should show "Continuar estudiando" or "Empieza por aquí"
+  // Show "Continuar estudiando" if the most recent activity is practice mode OR if there's partial progress
+  final bool hasHistory = ultimoModo == 'practice' || _partialProgress != null;
+  final String? modoLabel = ultimoModo != null ? _modoLabel(ultimoModo) : null;
+  
+  // If there's partial progress, update the label to show it's a continuation
+  final String? displayLabel = _partialProgress != null 
+      ? 'Continuar (${(_partialProgress!.completionPercentage * 100).toInt()}%)'
+      : modoLabel;
 
   final Widget header = PanelEstudioHeader(
     userName: _userName,
@@ -1637,12 +1839,12 @@ Widget build(BuildContext context) {
   );
 
   final Widget continueCard = ContinueStudyingCard(
-    hasHistory: ultimo != null,
+    hasHistory: hasHistory,
     materiaNombre: materiaContinuar['nombre'].toString(),
     imagenAsset: materiaContinuar['Imagen'].toString(),
-    modoLabel: ultimo != null ? _modoLabel(ultimo.mode) : null,
-    resultadoPct: resultadoContinuarPct,
-    onTap: () => _mostrarSeleccionModo(context, materiaContinuar),
+    modoLabel: hasHistory ? displayLabel : null,
+    resultadoPct: hasHistory ? ultimoProgresoPct : null,
+    onTap: () => _continuarEstudio(context, materiaContinuar),
     darkGradientColor: AppColors.darkCard,
     darkTextColor: AppColors.darkText,
     lightTextColor: AppColors.lightText,
@@ -1663,14 +1865,18 @@ Widget build(BuildContext context) {
     final nombreMateria = materia['nombre'].toString();
     final stats = _statsMateria(nombreMateria);
 
+    // Check if this subject has partial progress
+    final hasPartialProgress = _partialProgress != null && 
+        _partialProgress!.subject == nombreMateria;
+
     return SubjectCard(
       nombre: nombreMateria,
       imagenAsset: materia['Imagen'].toString(),
       streakDays: streakDays,
       tieneIntentos: stats.tieneIntentos,
       ultimoPct: stats.ultimoPct,
-      esMateriaActual: ultimo != null && nombreMateria == ultimo.subject,
-      onTap: () => _mostrarSeleccionModo(context, materia),
+      esMateriaActual: ultimaMateria != null && nombreMateria == ultimaMateria,
+      onTap: () => hasPartialProgress ? _continuarEstudio(context, materia) : _mostrarSeleccionModo(context, materia),
       darkGradientColor: AppColors.darkCard,
       darkTextColor: AppColors.darkText,
       lightTextColor: AppColors.lightText,
@@ -1901,7 +2107,34 @@ Widget build(BuildContext context) {
     );
   }
 
-  void _irAlQuiz(BuildContext context, Map<String, dynamic> materia, bool modoTest) {
+  void _irAlQuiz(BuildContext context, Map<String, dynamic> materia, bool modoTest) async {
+    // Check if there's partial progress for this subject and mode
+    final partialProgress = await StorageService.getPartialProgress();
+    
+    // If there's partial progress that matches the subject and mode, restore it directly
+    if (partialProgress != null && 
+        partialProgress.subject == materia['nombre'].toString() &&
+        partialProgress.mode == (modoTest ? 'test' : 'practice') &&
+        partialProgress.questionPool != null) {
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizPage(
+            preguntasRecibidas: partialProgress.questionPool!,
+            tituloMateria: materia['nombre'].toString(),
+            isTestMode: modoTest,
+            partialProgress: partialProgress, // Pass the partial progress to restore state
+          ),
+        ),
+      ).then((_) {
+        // Refresh data when returning from quiz
+        _loadStreakData();
+      });
+      return;
+    }
+    
+    // Otherwise, start a new quiz as before
     final dynamic poolRaw = materia['pool'];
     List<Map<String, dynamic>> poolAEnviar = [];
 
@@ -1917,7 +2150,7 @@ Widget build(BuildContext context) {
       poolAEnviar = poolAEnviar.take(limite).toList();
     }
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => QuizPage(
@@ -1926,7 +2159,10 @@ Widget build(BuildContext context) {
           isTestMode: modoTest,
         ),
       ),
-    );
+    ).then((_) {
+      // Refresh data when returning from quiz (both completion and back button)
+      _loadStreakData();
+    });
   }
 
   Future<void> _irAlStreakMode(BuildContext context, Map<String, dynamic> materia) async {
@@ -1951,10 +2187,13 @@ Widget build(BuildContext context) {
     
     if (!hasShownOnboarding) {
       if (context.mounted) {
-        Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => PantallaOnboardingStreak(materia: materia)),
-        );
+        ).then((_) {
+          // Refresh data when returning from onboarding
+          _loadStreakData();
+        });
       }
       return;
     }
@@ -1974,7 +2213,7 @@ Widget build(BuildContext context) {
     poolAEnviar = poolAEnviar.take(limite).toList();
 
     if (context.mounted) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => StreakQuizPage(
@@ -1982,7 +2221,10 @@ Widget build(BuildContext context) {
             tituloMateria: materia['nombre'].toString(),
           ),
         ),
-      );
+      ).then((_) {
+        // Refresh data when returning from streak quiz
+        _loadStreakData();
+      });
     }
   }
 }
@@ -1992,12 +2234,14 @@ class QuizPage extends StatefulWidget {
   final List<Map<String, dynamic>> preguntasRecibidas;
   final String tituloMateria;
   final bool isTestMode;
+  final PartialExamProgress? partialProgress; // Add partial progress parameter
 
   const QuizPage({
     super.key,
     required this.preguntasRecibidas,
     required this.tituloMateria,
     required this.isTestMode,
+    this.partialProgress, // Make it optional
   });
 
   @override
@@ -2024,11 +2268,33 @@ class _QuizPageState extends State<QuizPage> {
   void initState() {
     super.initState();
     preguntas = List<Map<String, dynamic>>.from(widget.preguntasRecibidas);
-    _cronometro = Stopwatch()..start();
     _pageController = PageController(initialPage: 0);
     _menuScrollController = ScrollController();
-    // Inicializamos con nulls para soportar saltos y re-navegación libre en ambos modos
-    respuestasUsuario = List<int?>.filled(preguntas.length, null);
+    
+    // Restore partial progress if available
+    if (widget.partialProgress != null) {
+      final progress = widget.partialProgress!;
+      respuestasUsuario = List<int?>.from(progress.userAnswers);
+      
+      // Restore the saved question position
+      preguntaActual = progress.currentQuestionIndex;
+      
+      // Restore time spent
+      _cronometro = Stopwatch();
+      _cronometro.start();
+      // We can't restore exact elapsed time in a stopwatch, but we can track it separately
+      _tiempoFinal = Duration(seconds: progress.timeSpentSeconds);
+      
+      // Update page controller to the current question
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pageController.jumpToPage(preguntaActual);
+      });
+    } else {
+      // Initialize normally for new quiz
+      respuestasUsuario = List<int?>.filled(preguntas.length, null);
+      _cronometro = Stopwatch()..start();
+      _tiempoFinal = Duration.zero;
+    }
   }
 
   @override
@@ -2036,7 +2302,35 @@ class _QuizPageState extends State<QuizPage> {
     _cronometro.stop();
     _pageController.dispose();
     _menuScrollController.dispose();
+    
+    // Save partial progress if quiz is not finished
+    if (!_isQuizFinished) {
+      _savePartialProgress();
+    }
+    
     super.dispose();
+  }
+
+  void _savePartialProgress() {
+    final answeredCount = respuestasUsuario.where((r) => r != null).length;
+    if (answeredCount > 0) {
+      // Calculate total time spent (existing time + current session time)
+      final totalTimeSpent = _tiempoFinal.inSeconds + _cronometro.elapsed.inSeconds;
+      
+      final progress = PartialExamProgress(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        subject: widget.tituloMateria,
+        date: DateTime.now(),
+        totalQuestions: preguntas.length,
+        answeredQuestions: answeredCount,
+        mode: widget.isTestMode ? 'test' : 'practice',
+        userAnswers: respuestasUsuario,
+        timeSpentSeconds: totalTimeSpent,
+        questionPool: preguntas, // Include the question pool for restoration
+        currentQuestionIndex: preguntaActual, // Save current question position
+      );
+      StorageService.savePartialProgress(progress);
+    }
   }
 
   String _formatearTextoPregunta(String textoOriginal, int indice) {
@@ -2162,6 +2456,9 @@ class _QuizPageState extends State<QuizPage> {
         if (puntos == 1) puntaje++;
       }
     });
+    
+    // Save progress after answering a question
+    _savePartialProgress();
   }
 
   // Método unificado para saltar de pregunta fluidamente
@@ -2187,6 +2484,10 @@ class _QuizPageState extends State<QuizPage> {
         respondido = indiceSeleccionado != null;
       }
     });
+    
+    // Save progress when changing questions (for accidental back navigation)
+    _savePartialProgress();
+    
     _animarMenuSuperior(index);
   }
 
@@ -2235,6 +2536,9 @@ class _QuizPageState extends State<QuizPage> {
     );
     
     StorageService.saveExamResult(examResult);
+    
+    // Clear partial progress since exam is now complete
+    StorageService.clearPartialProgress();
   }
 
   List<Map<String, dynamic>> _getAllQuestionsWithAnswers() {
@@ -2723,6 +3027,8 @@ class _QuizPageState extends State<QuizPage> {
     String minutos = _tiempoFinal.inMinutes.toString().padLeft(2, '0');
     String segundos = (_tiempoFinal.inSeconds % 60).toString().padLeft(2, '0');
     
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2735,11 +3041,12 @@ class _QuizPageState extends State<QuizPage> {
           ),
           Text(
             "$puntajeFinal de ${preguntas.length} correctas",
-            style: const TextStyle(fontSize: 18, color: Colors.grey),
+            style: TextStyle(fontSize: 18, color: esModoOscuro ? AppColors.darkTextSecondary : Colors.grey),
           ),
           const SizedBox(height: 20),
           Card(
             elevation: 4,
+            color: esModoOscuro ? AppColors.darkCard : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -2754,9 +3061,9 @@ class _QuizPageState extends State<QuizPage> {
                           const SizedBox(height: 8),
                           Text(
                             "$minutos:$segundos",
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: esModoOscuro ? AppColors.darkText : Colors.black87),
                           ),
-                          const Text("Tiempo", style: TextStyle(color: Colors.grey)),
+                          Text("Tiempo", style: TextStyle(color: esModoOscuro ? AppColors.darkTextSecondary : Colors.grey)),
                         ],
                       ),
                       Column(
@@ -2765,14 +3072,223 @@ class _QuizPageState extends State<QuizPage> {
                           const SizedBox(height: 8),
                           Text(
                             widget.tituloMateria,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: esModoOscuro ? AppColors.darkText : Colors.black87),
                             textAlign: TextAlign.center,
                           ),
-                          const Text("Materia", style: TextStyle(color: Colors.grey)),
+                          Text("Materia", style: TextStyle(color: esModoOscuro ? AppColors.darkTextSecondary : Colors.grey)),
                         ],
                       ),
                     ],
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          // Summary of all questions
+          Card(
+            elevation: 4,
+            color: esModoOscuro ? AppColors.darkCard : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.list_alt, color: colorDinamico, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Resumen de preguntas",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorDinamico,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(preguntas.length, (index) {
+                    final pregunta = preguntas[index];
+                    final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
+                    final int? userAnswerIndex = respuestasUsuario[index];
+                    
+                    // Find correct answer
+                    int correctIndex = -1;
+                    for (int j = 0; j < respuestas.length; j++) {
+                      if (respuestas[j]['puntos'] == 1) {
+                        correctIndex = j;
+                        break;
+                      }
+                    }
+                    
+                    final bool isCorrect = userAnswerIndex != null && respuestas[userAnswerIndex]['puntos'] == 1;
+                    final bool wasAnswered = userAnswerIndex != null;
+                    
+                    // Dark mode colors
+                    final Color answeredCorrectColor = esModoOscuro ? Colors.green.shade800 : Colors.green.shade50;
+                    final Color answeredIncorrectColor = esModoOscuro ? Colors.red.shade800 : Colors.red.shade50;
+                    final Color unansweredColor = esModoOscuro ? AppColors.darkCard.withOpacity(0.5) : Colors.grey.shade100;
+                    final Color answeredCorrectBorder = esModoOscuro ? Colors.green.shade600 : Colors.green.shade300;
+                    final Color answeredIncorrectBorder = esModoOscuro ? Colors.red.shade600 : Colors.red.shade300;
+                    final Color unansweredBorder = esModoOscuro ? Colors.grey.shade600 : Colors.grey.shade300;
+                    final Color textColor = esModoOscuro ? AppColors.darkText : Colors.black87;
+                    final Color explanationBg = esModoOscuro ? Colors.blue.shade800 : Colors.blue.shade50;
+                    final Color explanationText = esModoOscuro ? Colors.blue.shade100 : Colors.blue.shade900;
+                    final Color answerContainerBg = esModoOscuro ? AppColors.darkCard : Colors.white;
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: wasAnswered 
+                            ? (isCorrect ? answeredCorrectColor : answeredIncorrectColor)
+                            : unansweredColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: wasAnswered 
+                              ? (isCorrect ? answeredCorrectBorder : answeredIncorrectBorder)
+                              : unansweredBorder,
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: wasAnswered 
+                                      ? (isCorrect ? Colors.green : Colors.red)
+                                      : Colors.grey,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    "${index + 1}",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  pregunta['texto'],
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: textColor,
+                                  ),
+                                ),
+                              ),
+                              if (wasAnswered)
+                                Icon(
+                                  isCorrect ? Icons.check_circle : Icons.cancel,
+                                  color: isCorrect ? Colors.green : Colors.red,
+                                  size: 20,
+                                )
+                              else
+                                Icon(
+                                  Icons.help_outline,
+                                  color: esModoOscuro ? Colors.grey.shade400 : Colors.grey,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                          if (wasAnswered) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: answerContainerBg,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.person_outline, size: 16, color: esModoOscuro ? Colors.blue.shade300 : Colors.blue),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Tu respuesta:",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: esModoOscuro ? Colors.blue.shade300 : Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          respuestas[userAnswerIndex]['texto'],
+                                          style: TextStyle(fontSize: 12, color: textColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.check_circle_outline, size: 16, color: esModoOscuro ? Colors.green.shade300 : Colors.green),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Respuesta correcta:",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: esModoOscuro ? Colors.green.shade300 : Colors.green,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          correctIndex >= 0 ? respuestas[correctIndex]['texto'] : 'N/A',
+                                          style: TextStyle(fontSize: 12, color: textColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (pregunta.containsKey('explicacion') && pregunta['explicacion'] != null && pregunta['explicacion'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: explanationBg,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.lightbulb_outline, size: 16, color: esModoOscuro ? Colors.blue.shade200 : Colors.blue),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      pregunta['explicacion'],
+                                      style: TextStyle(fontSize: 11, color: explanationText),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -3080,62 +3596,105 @@ class PantallaOnboardingStreak extends StatelessWidget {
   Widget build(BuildContext context) {
     bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     
+    // Get screen dimensions for responsive design
+    final screenSize = MediaQuery.of(context).size;
+    final screenHeight = screenSize.height;
+    final screenWidth = screenSize.width;
+    
+    // Responsive padding based on screen size
+    final horizontalPadding = screenWidth < 360 ? 12.0 : 24.0;
+    final verticalPadding = screenHeight < 600 ? 8.0 : 16.0;
+    
+    // Responsive font sizes
+    final titleFontSize = screenWidth < 360 ? 24.0 : 32.0;
+    final subtitleFontSize = screenWidth < 360 ? 14.0 : 18.0;
+    final cardTitleFontSize = screenWidth < 360 ? 14.0 : 16.0;
+    final cardDescFontSize = screenWidth < 360 ? 12.0 : 14.0;
+    final buttonFontSize = screenWidth < 360 ? 16.0 : 18.0;
+    
+    // Responsive spacing
+    final spacing = screenHeight < 600 ? 6.0 : 12.0;
+    final largeSpacing = screenHeight < 600 ? 12.0 : 20.0;
+    final buttonSpacing = screenHeight < 600 ? 8.0 : 16.0;
+    
+    // Responsive icon size
+    final iconSize = screenWidth < 360 ? 20.0 : 28.0;
+    final fireSize = screenWidth < 360 ? 45.0 : 70.0;
+    
+    // Responsive button padding
+    final buttonHorizontalPadding = screenWidth < 360 ? 20.0 : 32.0;
+    final buttonVerticalPadding = screenHeight < 600 ? 10.0 : 14.0;
+    
     return Scaffold(
       backgroundColor: esModoOscuro ? const Color(0xFF0F172A) : const Color(0xFF1E3A5F),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const FireAnimation(size: 80),
-              const SizedBox(height: 24),
-              const Text(
+              FireAnimation(size: fireSize),
+              SizedBox(height: largeSpacing),
+              Text(
                 "Modo Streak",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 32,
+                  fontSize: titleFontSize,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
+              SizedBox(height: spacing),
+              Text(
                 "Mantén tu racha diaria de estudio",
                 style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 18,
+                  fontSize: subtitleFontSize,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: largeSpacing),
               _buildFeatureCard(
                 icon: Icons.timer,
                 title: "Tiempo Limitado",
                 description: "2 minutos por pregunta para simular condiciones reales de examen",
                 esModoOscuro: esModoOscuro,
+                titleFontSize: cardTitleFontSize,
+                descFontSize: cardDescFontSize,
+                iconSize: iconSize,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing),
               _buildFeatureCard(
                 icon: Icons.calendar_today,
                 title: "Racha Diaria",
                 description: "Completa dos exámenes por día (≥60% de aciertos) para mantener tu racha activa",
                 esModoOscuro: esModoOscuro,
+                titleFontSize: cardTitleFontSize,
+                descFontSize: cardDescFontSize,
+                iconSize: iconSize,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing),
               _buildFeatureCard(
                 icon: Icons.favorite,
                 title: "Sistema de Vidas",
                 description: "Tienes 3 vidas que se recargan a las 00:00. Si fallas un examen, pierdes una vida. Sin vidas, no puedes hacer más exámenes de racha.",
                 esModoOscuro: esModoOscuro,
+                titleFontSize: cardTitleFontSize,
+                descFontSize: cardDescFontSize,
+                iconSize: iconSize,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing),
               _buildFeatureCard(
                 icon: Icons.emoji_events,
                 title: "Preguntas Aleatorias",
                 description: "Cada examen presenta preguntas diferentes para mantener el desafío",
                 esModoOscuro: esModoOscuro,
+                titleFontSize: cardTitleFontSize,
+                descFontSize: cardDescFontSize,
+                iconSize: iconSize,
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: buttonSpacing),
               ElevatedButton(
                 onPressed: () async {
                   await StorageService.setStreakOnboardingShown();
@@ -3173,11 +3732,15 @@ class PantallaOnboardingStreak extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: buttonHorizontalPadding,
+                    vertical: buttonVerticalPadding,
+                  ),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
-                child: const Text("¡Entendido!", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text("¡Entendido!", style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold)),
               ),
+              SizedBox(height: 8.0), // Add minimal bottom padding
             ],
           ),
         ),
@@ -3190,9 +3753,12 @@ class PantallaOnboardingStreak extends StatelessWidget {
     required String title,
     required String description,
     required bool esModoOscuro,
+    double titleFontSize = 16.0,
+    double descFontSize = 14.0,
+    double iconSize = 32.0,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(iconSize < 28 ? 12.0 : 16.0),
       decoration: BoxDecoration(
         color: esModoOscuro ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(16),
@@ -3200,8 +3766,8 @@ class PantallaOnboardingStreak extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.orange, size: 32),
-          const SizedBox(width: 16),
+          Icon(icon, color: Colors.orange, size: iconSize),
+          SizedBox(width: iconSize < 28 ? 12.0 : 16.0),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3210,16 +3776,16 @@ class PantallaOnboardingStreak extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: esModoOscuro ? Colors.white : Colors.black87,
-                    fontSize: 16,
+                    fontSize: titleFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: iconSize < 28 ? 2.0 : 4.0),
                 Text(
                   description,
                   style: TextStyle(
                     color: esModoOscuro ? Colors.white70 : Colors.black54,
-                    fontSize: 14,
+                    fontSize: descFontSize,
                   ),
                 ),
               ],
