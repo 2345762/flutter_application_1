@@ -34,6 +34,7 @@ import 'widgets/panel_estudio/subject_card.dart';
 import 'widgets/panel_estudio/mode_selector_sheet.dart';
 import 'widgets/panel_estudio/continue_studying_card.dart';
 import 'widgets/panel_estudio/progress_summary.dart';
+import 'widgets/panel_estudio/app_drawer.dart';
 
 // =============================================================
 // MODELOS DE DATOS PARA STREAK MODE E HISTORIAL
@@ -1601,7 +1602,17 @@ Widget build(BuildContext context) {
   final Widget header = PanelEstudioHeader(
     userName: _userName,
     rachaActivaMax: _rachaActivaMax,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    onStreakTap: () => _mostrarResumenStreak(context),
+  );
+
+  final Widget drawer = AppDrawer(
+    userName: _userName,
+    materiasIniciadas: _materiasIniciadas,
+    totalMaterias: widget.materias.length,
     themeNotifier: themeNotifier,
+    surfaceColor: esModoOscuro ? AppColors.darkCard : Colors.white,
     textColor: textColor,
     secondaryTextColor: secondaryTextColor,
     onOpenInstructions: () {
@@ -1622,7 +1633,6 @@ Widget build(BuildContext context) {
         MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
       );
     },
-    onStreakTap: () => _mostrarResumenStreak(context),
     onLogout: () => _handleLogout(context),
   );
 
@@ -1673,6 +1683,7 @@ Widget build(BuildContext context) {
   if (!esEscritorioAncho) {
     // Diseño móvil aprobado (< 600 px) — estructura sin cambios.
     return Scaffold(
+      drawer: drawer,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -1706,6 +1717,7 @@ Widget build(BuildContext context) {
   // Escritorio / web ancho (>= 600 px): contenido centrado, ancho máximo,
   // todo dentro de un único scroll (encabezado, continuar, materias y resumen).
   return Scaffold(
+    drawer: drawer,
     body: SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
