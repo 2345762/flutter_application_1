@@ -579,15 +579,19 @@ class StorageService {
         
         // Load study progress for each subject
         if (userData.containsKey('studyProgress')) {
-          final studyProgress = userData['studyProgress'] as Map<String, dynamic>;
-          final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
-          final Map<String, dynamic> allProgress = json.decode(allProgressStr);
-          
-          for (var entry in studyProgress.entries) {
-            allProgress[entry.key] = entry.value;
+          try {
+            final studyProgress = userData['studyProgress'] as Map<String, dynamic>;
+            final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+            final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+            
+            for (var entry in studyProgress.entries) {
+              allProgress[entry.key] = entry.value;
+            }
+            
+            await prefs.setString(_partialProgressKey, json.encode(allProgress));
+          } catch (e) {
+            print("Error loading study progress from Firebase: $e");
           }
-          
-          await prefs.setString(_partialProgressKey, json.encode(allProgress));
         }
       }
     } catch (e) {
@@ -1943,20 +1947,6 @@ Widget build(BuildContext context) {
       ? 'Continuar (${(_mostRecentPartialProgress!.completionPercentage * 100).toInt()}%)'
       : modoLabel;
 
-  // Prepare list of all subjects in progress for ContinueStudyingCard
-  final allSubjectsInProgress = _allPartialProgress.entries.map((entry) {
-    return {
-      'nombre': entry.key,
-      'imagen': widget.materias.firstWhere(
-        (m) => m['nombre'] == entry.key,
-        orElse: () => widget.materias.first,
-      )['Imagen'],
-      'progress': entry.value.completionPercentage,
-      'currentQuestion': entry.value.currentQuestionIndex + 1,
-      'totalQuestions': entry.value.totalQuestions,
-    };
-  }).toList();
-
   final Widget header = PanelEstudioHeader(
     userName: _userName,
     rachaActivaMax: _rachaActivaMax,
@@ -2010,7 +2000,6 @@ Widget build(BuildContext context) {
     darkGradientColor: AppColors.darkCard,
     darkTextColor: AppColors.darkText,
     lightTextColor: AppColors.lightText,
-    allSubjectsInProgress: allSubjectsInProgress,
   );
 
   final Widget summary = ProgressSummary(

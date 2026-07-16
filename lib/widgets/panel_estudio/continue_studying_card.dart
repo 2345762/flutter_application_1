@@ -12,7 +12,6 @@ class ContinueStudyingCard extends StatelessWidget {
   final Color darkGradientColor;
   final Color darkTextColor;
   final Color lightTextColor;
-  final List<Map<String, dynamic>> allSubjectsInProgress; // New parameter for multiple subjects
 
   const ContinueStudyingCard({
     super.key,
@@ -25,7 +24,6 @@ class ContinueStudyingCard extends StatelessWidget {
     required this.darkGradientColor,
     required this.darkTextColor,
     required this.lightTextColor,
-    this.allSubjectsInProgress = const [], // Default to empty list
   });
 
   @override
@@ -33,69 +31,6 @@ class ContinueStudyingCard extends StatelessWidget {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = esModoOscuro ? darkTextColor : lightTextColor;
 
-    // If there are multiple subjects in progress, show a horizontal scrollable list
-    if (allSubjectsInProgress.length > 1) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accent.withValues(alpha: 0.35)),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: esModoOscuro
-                ? [
-                    darkGradientColor.withValues(alpha: 0.95),
-                    darkGradientColor.withValues(alpha: 0.8),
-                  ]
-                : [Colors.white, Colors.white],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'CONTINUAR ESTUDIANDO',
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-                color: accent,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 80,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: allSubjectsInProgress.length,
-                itemBuilder: (context, index) {
-                  final subject = allSubjectsInProgress[index];
-                  final progress = (subject['progress'] as double) * 100;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: _SubjectProgressItem(
-                      nombre: subject['nombre'],
-                      imagenAsset: subject['imagen'].toString(),
-                      progress: progress,
-                      onTap: () {
-                        // Navigate to continue this specific subject
-                        // This will be handled by the parent through the main onTap
-                      },
-                      textColor: textColor,
-                      accentColor: accent,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Single subject (original behavior)
     final String semanticsLabel = hasHistory
         ? 'Continuar estudiando $materiaNombre. Último modo: $modoLabel.'
               '${resultadoPct != null ? ' Último resultado: ${resultadoPct!.round()} por ciento.' : ''}'
@@ -218,76 +153,6 @@ class ContinueStudyingCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubjectProgressItem extends StatelessWidget {
-  final String nombre;
-  final String imagenAsset;
-  final double progress;
-  final VoidCallback onTap;
-  final Color textColor;
-  final Color accentColor;
-
-  const _SubjectProgressItem({
-    required this.nombre,
-    required this.imagenAsset,
-    required this.progress,
-    required this.onTap,
-    required this.textColor,
-    required this.accentColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 120,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                imagenAsset,
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.error, size: 24),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              nombre,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-            Text(
-              '${progress.toInt()}%',
-              style: TextStyle(
-                fontSize: 9,
-                color: accentColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
         ),
       ),
     );
