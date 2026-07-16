@@ -25,7 +25,7 @@ import 'data/performance_y_motores.dart';
 import 'data/operaciones_de_vuelo.dart';
 import 'data/peso_y_balance.dart';
 import 'data/meteorologia.dart';
-import 'data/reglamentacion.dart';
+import 'data/reglamentacion.dart';  
 
 // =============================================================
 // WIDGETS DE PRESENTACIÓN DEL PANEL DE ESTUDIO
@@ -5043,62 +5043,184 @@ class PantallaAcercaDe extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
-              Icons.flight,
-              size: 80,
-              color: Colors.indigo,
+            // Header
+            Center(
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.flight,
+                    size: 80,
+                    color: Colors.indigo,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Piloto de Aviación - Quiz App',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Sistema integral de estudio para pilotos de aviación',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Piloto de Aviación - Quiz App',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Una aplicación de aprendizaje para pilotos de aviación.',
-              style: TextStyle(
-                fontSize: 16,
-                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-            const SizedBox(height: 32),
-            _buildInfoCard(
+            
+            // App Overview
+            _buildSection(
               esModoOscuro,
-              'Versión',
-              '1.0.0',
+              '📱 Sobre la Aplicación',
+              'Esta aplicación está diseñada para ayudar a los pilotos de aviación a estudiar y preparar sus exámenes teóricos de manera interactiva y efectiva. Cuenta con múltiples modos de estudio, seguimiento de progreso, y un sistema de racha para mantener la constancia en el aprendizaje.',
             ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
+            
+            const SizedBox(height: 24),
+            
+            // Subjects Section
+            _buildSection(
               esModoOscuro,
-              'Desarrollador',
-              'Devin AI',
+              '📚 Materias Disponibles',
+              'La aplicación cubre las siguientes materias esenciales para la formación de pilotos:',
             ),
+            const SizedBox(height: 12),
+            _buildSubjectCard(esModoOscuro, 'Aerodinámica', 'Principios de vuelo, fuerzas aerodinámicas, performance de la aeronave'),
+            _buildSubjectCard(esModoOscuro, 'Performance y Motores', 'Operación de motores, sistemas de propulsión, limitaciones de performance'),
+            _buildSubjectCard(esModoOscuro, 'Operaciones de Vuelo', 'Procedimientos de vuelo, navegación, comunicaciones'),
+            _buildSubjectCard(esModoOscuro, 'Peso y Balance', 'Cálculo de peso, balanceo de la aeronave, limitaciones de carga'),
+            _buildSubjectCard(esModoOscuro, 'Meteorología', 'Fenómenos meteorológicos, interpretación de cartas, seguridad meteorológica'),
+            _buildSubjectCard(esModoOscuro, 'Reglamentación', 'Normativas aéreas, regulaciones de vuelo, procedimientos regulatorios'),
+            
+            const SizedBox(height: 24),
+            
+            // Study Modes Section
+            _buildSection(
+              esModoOscuro,
+              '🎯 Modos de Estudio',
+              'La aplicación ofrece tres modos de estudio adaptados a diferentes necesidades:',
+            ),
+            const SizedBox(height: 12),
+            _buildModeCard(
+              esModoOscuro,
+              'Modo Práctica',
+              Icons.school,
+              Colors.blue,
+              'Retroalimentación inmediata en cada pregunta. Ideal para aprender y reforzar conocimientos. Puedes ver la respuesta correcta y explicación al instante.',
+            ),
+            _buildModeCard(
+              esModoOscuro,
+              'Modo Test (Examen)',
+              Icons.timer_outlined,
+              Colors.orange,
+              'Simula un examen real. El solucionario solo se muestra al finalizar. Perfecto para evaluar tu nivel de preparación.',
+            ),
+            _buildModeCard(
+              esModoOscuro,
+              'Modo Racha',
+              Icons.local_fire_department,
+              Colors.red,
+              'Examen cronometrado de racha diaria. Completa 1 examen por día (≥60% de aciertos) para mantener tu racha activa. Sistema de vidas y desafío constante.',
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Streak System
+            _buildSection(
+              esModoOscuro,
+              '🔥 Sistema de Racha',
+              'El sistema de racha te motiva a estudiar diariamente:',
+            ),
+            const SizedBox(height: 12),
+            _buildStreakFeature(esModoOscuro, '1 examen diario', 'Completa 1 examen con ≥60% de aciertos por día'),
+            _buildStreakFeature(esModoOscuro, '3 vidas', 'Tienes 3 vidas que se recargan a las 00:00 (hora chilena)'),
+            _buildStreakFeature(esModoOscuro, 'Pérdida de vida', 'Si fallas un examen (<60%), pierdes una vida'),
+            _buildStreakFeature(esModoOscuro, 'Preguntas aleatorias', 'Cada examen presenta preguntas diferentes para mantener el desafío'),
+            _buildStreakFeature(esModoOscuro, 'Tiempo limitado', '2 minutos por pregunta para simular condiciones reales de examen'),
+            
+            const SizedBox(height: 24),
+            
+            // Progress System
+            _buildSection(
+              esModoOscuro,
+              '📊 Sistema de Progreso',
+              'La aplicación guarda tu progreso de estudio individualmente por materia:',
+            ),
+            const SizedBox(height: 12),
+            _buildProgressFeature(esModoOscuro, 'Progreso por materia', 'Cada materia guarda su propio progreso de estudio'),
+            _buildProgressFeature(esModoOscuro, 'Indicadores visuales', 'Barras de progreso circulares en cada tarjeta de materia'),
+            _buildProgressFeature(esModoOscuro, 'Continuar estudiando', 'Reanuda desde donde lo dejaste en cada materia'),
+            _buildProgressFeature(esModoOscuro, 'Sincronización Firebase', 'Tu progreso se guarda en la nube y se recupera al iniciar sesión'),
+            _buildProgressFeature(esModoOscuro, 'Historial de exámenes', 'Registro completo de todos tus exámenes realizados'),
+            
+            const SizedBox(height: 24),
+            
+            // Features
+            _buildSection(
+              esModoOscuro,
+              '✨ Características Adicionales',
+              'Funcionalidades diseñadas para mejorar tu experiencia de estudio:',
+            ),
+            const SizedBox(height: 12),
+            _buildFeatureItem(esModoOscuro, '🌙 Modo oscuro/claro', 'Interfaz adaptable a tus preferencias visuales'),
+            _buildFeatureItem(esModoOscuro, '📱 Diseño responsivo', 'Optimizado para diferentes tamaños de pantalla'),
+            _buildFeatureItem(esModoOscuro, '💾 Guardado automático', 'Tu progreso se guarda automáticamente'),
+            _buildFeatureItem(esModoOscuro, '🔔 Notificaciones', 'Recordatorios para mantener tu racha activa'),
+            _buildFeatureItem(esModoOscuro, '📈 Estadísticas detalladas', 'Análisis de tu rendimiento por materia y modo'),
+            
+            const SizedBox(height: 24),
+            
+            // How to Use
+            _buildSection(
+              esModoOscuro,
+              '🚀 Cómo Usar la Aplicación',
+              'Pasos para comenzar tu estudio:',
+            ),
+            const SizedBox(height: 12),
+            _buildStep(esModoOscuro, '1', 'Selecciona una materia del panel principal'),
+            _buildStep(esModoOscuro, '2', 'Elige tu modo de estudio (Práctica, Test o Racha)'),
+            _buildStep(esModoOscuro, '3', 'Responde las preguntas dentro del tiempo límite'),
+            _buildStep(esModoOscuro, '4', 'Revisa tus resultados y explicaciones al finalizar'),
+            _buildStep(esModoOscuro, '5', 'Sigue tu progreso y mantén tu racha diaria'),
+            
             const SizedBox(height: 32),
-            Text(
-              'Sistema de Racha',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+            
+            // Footer
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    'Versión 1.0.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Desarrollado con ❤️ para pilotos de aviación',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Completa 1 examen por día (≥60% de aciertos) para mantener tu racha activa. Si fallas un examen, pierdes una vida. Tienes 3 vidas que se recargan a las 00:00.',
-              style: TextStyle(
-                fontSize: 14,
-                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-            const SizedBox(height: 32),
+            
+            const SizedBox(height: 24),
+            
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -5119,29 +5241,212 @@ class PantallaAcercaDe extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(bool esModoOscuro, String label, String value) {
+  Widget _buildSection(bool esModoOscuro, String title, String description) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          description,
+          style: TextStyle(
+            fontSize: 14,
+            color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubjectCard(bool esModoOscuro, String title, String description) {
     return Card(
-      color: esModoOscuro ? AppColors.darkCard : AppColors.lightCard,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: esModoOscuro ? AppColors.darkCard : Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              label,
+              title,
               style: TextStyle(
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
               ),
             ),
+            const SizedBox(height: 4),
             Text(
-              value,
+              description,
               style: TextStyle(
+                fontSize: 12,
                 color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildModeCard(bool esModoOscuro, String title, IconData icon, Color color, String description) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: esModoOscuro ? AppColors.darkCard : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreakFeature(bool esModoOscuro, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              '$title: $description',
+              style: TextStyle(
+                fontSize: 13,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressFeature(bool esModoOscuro, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              '$title: $description',
+              style: TextStyle(
+                fontSize: 13,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(bool esModoOscuro, String emoji, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep(bool esModoOscuro, String number, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.indigo,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
