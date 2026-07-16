@@ -5068,7 +5068,7 @@ class PantallaAcercaDe extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sistema integral de estudio para pilotos de aviación',
+                    'Sistema integral de estudio',
                     style: TextStyle(
                       fontSize: 14,
                       color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -5084,7 +5084,7 @@ class PantallaAcercaDe extends StatelessWidget {
             _buildSection(
               esModoOscuro,
               '📱 Sobre la Aplicación',
-              'Esta aplicación está diseñada para ayudar a los pilotos de aviación a estudiar y preparar sus exámenes teóricos de manera interactiva y efectiva. Cuenta con múltiples modos de estudio, seguimiento de progreso, y un sistema de racha para mantener la constancia en el aprendizaje.',
+              'Esta aplicación está diseñada para ayudar a los estudiantes a preparar sus exámenes teóricos de manera interactiva y efectiva. Cuenta con múltiples modos de estudio, seguimiento de progreso, y un sistema de racha para mantener la constancia en el aprendizaje.',
             ),
             
             const SizedBox(height: 24),
@@ -5093,7 +5093,7 @@ class PantallaAcercaDe extends StatelessWidget {
             _buildSection(
               esModoOscuro,
               '📚 Materias Disponibles',
-              'La aplicación cubre las siguientes materias esenciales para la formación de pilotos:',
+              'La aplicación cubre las siguientes materias esenciales para la formación de nuestros estudiantes:',
             ),
             const SizedBox(height: 12),
             _buildSubjectCard(esModoOscuro, 'Aerodinámica', 'Principios de vuelo, fuerzas aerodinámicas, performance de la aeronave'),
@@ -5189,7 +5189,7 @@ class PantallaAcercaDe extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Versión 1.0.0',
+                    "",
                     style: TextStyle(
                       fontSize: 12,
                       color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -5197,7 +5197,7 @@ class PantallaAcercaDe extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Desarrollado con ❤️ para pilotos de aviación',
+                    '',
                     style: TextStyle(
                       fontSize: 12,
                       color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
