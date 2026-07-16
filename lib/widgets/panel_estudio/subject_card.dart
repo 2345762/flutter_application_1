@@ -9,6 +9,7 @@ class SubjectCard extends StatelessWidget {
   final bool tieneIntentos;
   final double? ultimoPct;
   final bool esMateriaActual;
+  final double progressPercentage; // Study mode progress (0.0 to 1.0)
   final VoidCallback onTap;
   final Color darkGradientColor;
   final Color darkTextColor;
@@ -22,6 +23,7 @@ class SubjectCard extends StatelessWidget {
     required this.tieneIntentos,
     required this.ultimoPct,
     required this.esMateriaActual,
+    this.progressPercentage = 0.0,
     required this.onTap,
     required this.darkGradientColor,
     required this.darkTextColor,
@@ -99,6 +101,21 @@ class SubjectCard extends StatelessWidget {
                                 errorBuilder: (context, error, stackTrace) =>
                                     const Icon(Icons.error),
                               ),
+                              // Subtle circular progress indicator
+                              if (progressPercentage > 0 && progressPercentage < 1.0)
+                                Positioned.fill(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: CircularProgressIndicator(
+                                      value: progressPercentage,
+                                      strokeWidth: 2,
+                                      backgroundColor: Colors.transparent,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        accent.withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               if (streakDays > 0)
                                 Positioned(
                                   top: 4,

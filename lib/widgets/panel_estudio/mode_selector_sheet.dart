@@ -15,6 +15,9 @@ class ModeSelectorSheet extends StatelessWidget {
   final VoidCallback onPractice;
   final VoidCallback onTest;
   final VoidCallback onRacha;
+  final VoidCallback? onContinue; // New callback for continue studying
+  final int? currentQuestion; // Current question index
+  final int? totalQuestions; // Total questions for progress display
 
   const ModeSelectorSheet({
     super.key,
@@ -26,6 +29,9 @@ class ModeSelectorSheet extends StatelessWidget {
     required this.onPractice,
     required this.onTest,
     required this.onRacha,
+    this.onContinue,
+    this.currentQuestion,
+    this.totalQuestions,
   });
 
   static String _vidasLabel(int lives) {
@@ -91,6 +97,27 @@ class ModeSelectorSheet extends StatelessWidget {
                 style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
               ),
               const SizedBox(height: 14),
+              // Continue studying option (if progress exists)
+              if (onContinue != null && currentQuestion != null && totalQuestions != null)
+                Semantics(
+                  button: true,
+                  label: 'Continuar estudiando. Pregunta $currentQuestion de $totalQuestions.',
+                  child: _ModeCard(
+                    color: practicaColor,
+                    icon: Icons.play_arrow,
+                    title: 'Continuar estudiando',
+                    description: 'Pregunta $currentQuestion / $totalQuestions',
+                    trailing: const _CountBadge(
+                      text: 'Continuar',
+                      color: practicaColor,
+                    ),
+                    onTap: onContinue,
+                    textColor: textColor,
+                    secondaryTextColor: secondaryTextColor,
+                  ),
+                ),
+              if (onContinue != null && currentQuestion != null && totalQuestions != null)
+                const SizedBox(height: 10),
               Semantics(
                 button: true,
                 label: 'Seleccionar Modo Práctica',

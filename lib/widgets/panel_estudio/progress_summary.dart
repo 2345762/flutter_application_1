@@ -10,6 +10,7 @@ class ProgressSummary extends StatelessWidget {
   final Color textColor;
   final Color secondaryTextColor;
   final VoidCallback onStreakTap;
+  final int dailyExamsPassed; // New parameter for daily progress
 
   const ProgressSummary({
     super.key,
@@ -20,6 +21,7 @@ class ProgressSummary extends StatelessWidget {
     required this.textColor,
     required this.secondaryTextColor,
     required this.onStreakTap,
+    this.dailyExamsPassed = 0, // Default to 0
   });
 
   @override
@@ -30,16 +32,20 @@ class ProgressSummary extends StatelessWidget {
         ? 100.0
         : (screenWidth <= 340 ? 78.0 : 86.0);
 
+    // Calculate daily progress display (max 1/1)
+    final dailyProgress = dailyExamsPassed > 1 ? 1 : dailyExamsPassed;
+    final dailyProgressText = '$dailyProgress/1';
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Semantics(
-            label: 'Materias iniciadas: $materiasIniciadas de $totalMaterias',
+            label: 'Exámenes necesarios para mantener la racha: $dailyProgressText',
             excludeSemantics: true,
             child: _StatChip(
-              value: '$materiasIniciadas/$totalMaterias',
-              label: 'MATERIAS',
+              value: dailyProgressText,
+              label: 'NECESARIOS',
               textColor: textColor,
               secondaryTextColor: secondaryTextColor,
             ),

@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'dart:io' if (dart.library.io) 'dart:io';
@@ -15,6 +14,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 // =============================================================
 // SECCIÓN DE DATOS: IMPORTAR PREGUNTAS
@@ -35,6 +36,37 @@ import 'widgets/panel_estudio/mode_selector_sheet.dart';
 import 'widgets/panel_estudio/continue_studying_card.dart';
 import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
+
+// =============================================================
+// UTILIDADES DE ZONA HORARIA CHILENA
+// =============================================================
+
+/// Get current date in Chilean timezone (America/Santiago)
+DateTime _getChileanDate() {
+  final now = tz.TZDateTime.now(tz.local);
+  return DateTime(now.year, now.month, now.day);
+}
+
+/// Check if a given date is before today in Chilean timezone
+bool _isBeforeTodayInChile(DateTime date) {
+  final today = _getChileanDate();
+  final dateToCheck = DateTime(date.year, date.month, date.day);
+  return dateToCheck.isBefore(today);
+}
+
+/// Convert a DateTime to Chilean timezone
+DateTime _toChileanTime(DateTime date) {
+  if (date.isUtc) {
+    return tz.TZDateTime.from(date, tz.local);
+  }
+  return tz.TZDateTime.from(date, tz.local);
+}
+
+/// Format date in Chilean timezone (DD/MM/YYYY HH:MM)
+String _formatDate(DateTime date) {
+  final chileanDate = _toChileanTime(date);
+  return '${chileanDate.day.toString().padLeft(2, '0')}/${chileanDate.month.toString().padLeft(2, '0')}/${chileanDate.year} ${chileanDate.hour.toString().padLeft(2, '0')}:${chileanDate.minute.toString().padLeft(2, '0')}';
+}
 
 // =============================================================
 // MODELOS DE DATOS PARA STREAK MODE E HISTORIAL
@@ -305,10 +337,10 @@ class StorageService {
   static Future<void> updateStreakAfterExam(String subject, bool passed, double scorePercentage) async {
     final currentStreak = await getStreakData(subject);
     final globalStreak = await getGlobalStreakData();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final now = tz.TZDateTime.now(tz.local);
+    final today = _getChileanDate();
 
-    // Recharge global lives if it's a new day (00:00)
+    // Recharge global lives if it's a new day (00:00 Chilean time)
     GlobalStreakData globalWithRechargedLives = await _rechargeGlobalLivesIfNeeded(globalStreak, now);
 
     // Check if we should use existing or create new
@@ -322,9 +354,9 @@ class StorageService {
       lastDailyResetDate: today,
     );
 
-    // Reset daily count if it's a new day
+    // Reset daily count if it's a new day (Chilean timezone)
     if (workingStreak.lastDailyResetDate == null || 
-        workingStreak.lastDailyResetDate!.isBefore(today)) {
+        _isBeforeTodayInChile(workingStreak.lastDailyResetDate!)) {
       workingStreak = StreakData(
         subject: workingStreak.subject,
         streakDays: workingStreak.streakDays,
@@ -351,8 +383,8 @@ class StorageService {
     if (passedThreshold) {
       newDailyExamsPassed++;
       
-      // Check if we completed 2 exams today to add streak day
-      if (newDailyExamsPassed >= 2) {
+      // Check if we completed 1 exam today to add streak day
+      if (newDailyExamsPassed >= 1) {
         newStreakDays++;
         newDailyExamsPassed = 0; // Reset for next day
         
@@ -389,12 +421,12 @@ class StorageService {
   }
 
   static Future<GlobalStreakData> _rechargeGlobalLivesIfNeeded(GlobalStreakData globalStreak, DateTime now) async {
-    final today = DateTime(now.year, now.month, now.day);
+    final today = _getChileanDate();
     final lastRecharge = globalStreak.lastLivesRechargeDate;
     
-    // Recharge if it's a new day (00:00)
+    // Recharge if it's a new day (00:00 Chilean time)
     if (lastRecharge == null || 
-        DateTime(lastRecharge.year, lastRecharge.month, lastRecharge.day).isBefore(today)) {
+        _isBeforeTodayInChile(lastRecharge)) {
       return GlobalStreakData(
         lives: 3, // Recharge to 3
         lastLivesRechargeDate: today,
@@ -525,6 +557,7 @@ class StorageService {
         // Load streak data for each subject
         if (userData.containsKey('streaks')) {
           final streaks = userData['streaks'] as Map<String, dynamic>;
+          final today = _getChileanDate();
           
           for (var entry in streaks.entries) {
             final subject = entry.key;
@@ -533,15 +566,28 @@ class StorageService {
             final streakData = StreakData(
               subject: subject,
               streakDays: streakInfo['currentStreak'] as int? ?? 0,
-              lastExamDate: DateTime.now(),
+              lastExamDate: tz.TZDateTime.now(tz.local),
               totalExams: streakInfo['totalPassed'] as int? ?? 0,
               maxStreakDays: streakInfo['maxStreak'] as int? ?? 0,
               dailyExamsPassed: 0,
-              lastDailyResetDate: DateTime.now(),
+              lastDailyResetDate: today,
             );
             
             await saveStreakData(streakData);
           }
+        }
+        
+        // Load study progress for each subject
+        if (userData.containsKey('studyProgress')) {
+          final studyProgress = userData['studyProgress'] as Map<String, dynamic>;
+          final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+          final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+          
+          for (var entry in studyProgress.entries) {
+            allProgress[entry.key] = entry.value;
+          }
+          
+          await prefs.setString(_partialProgressKey, json.encode(allProgress));
         }
       }
     } catch (e) {
@@ -583,22 +629,104 @@ class StorageService {
 
   static Future<void> savePartialProgress(PartialExamProgress progress) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_partialProgressKey, json.encode(progress.toJson()));
+    final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+    final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+    
+    // Save progress for this specific subject
+    allProgress[progress.subject] = progress.toJson();
+    
+    await prefs.setString(_partialProgressKey, json.encode(allProgress));
+    
+    // Also sync to Firebase
+    try {
+      SharedPreferences prefsUser = await SharedPreferences.getInstance();
+      String userName = prefsUser.getString('userName') ?? "Unknown";
+      
+      var userDoc = await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName)
+          .get();
+      
+      Map<String, dynamic> userData = {};
+      if (userDoc.exists) {
+        userData = userDoc.data() as Map<String, dynamic>;
+      }
+      
+      Map<String, dynamic> studyProgress = userData['studyProgress'] as Map<String, dynamic>? ?? {};
+      studyProgress[progress.subject] = progress.toJson();
+      userData['studyProgress'] = studyProgress;
+      userData['lastUpdated'] = FieldValue.serverTimestamp();
+      
+      await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName)
+          .set(userData, SetOptions(merge: true));
+    } catch (e) {
+      print("Error saving study progress to Firebase: $e");
+    }
   }
 
-  static Future<PartialExamProgress?> getPartialProgress() async {
+  static Future<PartialExamProgress?> getPartialProgress(String subject) async {
     final prefs = await SharedPreferences.getInstance();
-    final progressStr = prefs.getString(_partialProgressKey);
+    final allProgressStr = prefs.getString(_partialProgressKey);
     
-    if (progressStr != null) {
-      return PartialExamProgress.fromJson(json.decode(progressStr));
+    if (allProgressStr != null) {
+      final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+      if (allProgress.containsKey(subject)) {
+        return PartialExamProgress.fromJson(allProgress[subject] as Map<String, dynamic>);
+      }
     }
     return null;
   }
 
-  static Future<void> clearPartialProgress() async {
+  static Future<Map<String, PartialExamProgress>> getAllPartialProgress() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_partialProgressKey);
+    final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+    final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+    
+    Map<String, PartialExamProgress> result = {};
+    for (var entry in allProgress.entries) {
+      result[entry.key] = PartialExamProgress.fromJson(entry.value as Map<String, dynamic>);
+    }
+    return result;
+  }
+
+  static Future<void> clearPartialProgress(String subject) async {
+    final prefs = await SharedPreferences.getInstance();
+    final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+    final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+    
+    allProgress.remove(subject);
+    
+    await prefs.setString(_partialProgressKey, json.encode(allProgress));
+    
+    // Also sync to Firebase
+    try {
+      SharedPreferences prefsUser = await SharedPreferences.getInstance();
+      String userName = prefsUser.getString('userName') ?? "Unknown";
+      
+      var userDoc = await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName)
+          .get();
+      
+      Map<String, dynamic> userData = {};
+      if (userDoc.exists) {
+        userData = userDoc.data() as Map<String, dynamic>;
+      }
+      
+      Map<String, dynamic> studyProgress = userData['studyProgress'] as Map<String, dynamic>? ?? {};
+      studyProgress.remove(subject);
+      userData['studyProgress'] = studyProgress;
+      userData['lastUpdated'] = FieldValue.serverTimestamp();
+      
+      await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName)
+          .set(userData, SetOptions(merge: true));
+    } catch (e) {
+      print("Error clearing study progress from Firebase: $e");
+    }
   }
 }
 
@@ -653,6 +781,10 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .timeout(const Duration(seconds: 10));
+    
+    // Initialize timezone data
+    tz_data.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Santiago'));
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
@@ -1597,7 +1729,7 @@ class MainMenu extends StatefulWidget {
 class _MainMenuState extends State<MainMenu> {
   Map<String, StreakData> _streakData = {};
   List<ExamResult> _examHistory = [];
-  PartialExamProgress? _partialProgress;
+  Map<String, PartialExamProgress> _allPartialProgress = {};
   String _userName = '';
 
   @override
@@ -1609,7 +1741,7 @@ class _MainMenuState extends State<MainMenu> {
   Future<void> _loadStreakData() async {
     final streaks = await StorageService.getAllStreakData();
     final history = await StorageService.getExamHistory();
-    final partialProgress = await StorageService.getPartialProgress();
+    final allPartialProgress = await StorageService.getAllPartialProgress();
     final prefs = await SharedPreferences.getInstance();
     final rawUserName = prefs.getString('userName') ?? '';
 
@@ -1617,7 +1749,7 @@ class _MainMenuState extends State<MainMenu> {
       setState(() {
         _streakData = streaks;
         _examHistory = history;
-        _partialProgress = partialProgress;
+        _allPartialProgress = allPartialProgress;
         _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
     }
@@ -1632,16 +1764,29 @@ class _MainMenuState extends State<MainMenu> {
     return _examHistory.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
   }
 
+  // Get the most recent partial progress from all subjects
+  PartialExamProgress? get _mostRecentPartialProgress {
+    if (_allPartialProgress.isEmpty) return null;
+    
+    PartialExamProgress? mostRecent;
+    for (var progress in _allPartialProgress.values) {
+      if (mostRecent == null || progress.date.isAfter(mostRecent.date)) {
+        mostRecent = progress;
+      }
+    }
+    return mostRecent;
+  }
+
   // Get the most recent subject (from either completed exam or partial progress)
   String? get _ultimaMateria {
     final ultimoExamen = _ultimoResultado?.subject;
-    final progresoParcial = _partialProgress?.subject;
+    final progresoParcial = _mostRecentPartialProgress?.subject;
     
     if (ultimoExamen == null && progresoParcial == null) return null;
     
     // Compare dates to determine which is more recent
     final ultimoExamenDate = _ultimoResultado?.date;
-    final progresoParcialDate = _partialProgress?.date;
+    final progresoParcialDate = _mostRecentPartialProgress?.date;
     
     if (ultimoExamenDate == null && progresoParcialDate == null) return ultimoExamen;
     if (ultimoExamenDate == null) return progresoParcial;
@@ -1653,10 +1798,10 @@ class _MainMenuState extends State<MainMenu> {
   // Get the completion percentage for the most recent activity
   double? get _ultimoProgresoPct {
     final ultimoExamenDate = _ultimoResultado?.date;
-    final progresoParcialDate = _partialProgress?.date;
+    final progresoParcialDate = _mostRecentPartialProgress?.date;
     
     if (ultimoExamenDate == null && progresoParcialDate == null) return null;
-    if (ultimoExamenDate == null) return _partialProgress?.completionPercentage ?? 0.0;
+    if (ultimoExamenDate == null) return _mostRecentPartialProgress?.completionPercentage ?? 0.0;
     if (progresoParcialDate == null) {
       // For completed exams, return the score percentage
       final ultimo = _ultimoResultado;
@@ -1674,20 +1819,20 @@ class _MainMenuState extends State<MainMenu> {
       }
       return null;
     } else {
-      return _partialProgress?.completionPercentage ?? 0.0;
+      return _mostRecentPartialProgress?.completionPercentage ?? 0.0;
     }
   }
 
   // Get the mode of the most recent activity
   String? get _ultimoModo {
     final ultimoExamenDate = _ultimoResultado?.date;
-    final progresoParcialDate = _partialProgress?.date;
+    final progresoParcialDate = _mostRecentPartialProgress?.date;
     
     if (ultimoExamenDate == null && progresoParcialDate == null) return null;
-    if (ultimoExamenDate == null) return _partialProgress?.mode;
+    if (ultimoExamenDate == null) return _mostRecentPartialProgress?.mode;
     if (progresoParcialDate == null) return _ultimoResultado?.mode;
     
-    return ultimoExamenDate.isAfter(progresoParcialDate) ? _ultimoResultado?.mode : _partialProgress?.mode;
+    return ultimoExamenDate.isAfter(progresoParcialDate) ? _ultimoResultado?.mode : _mostRecentPartialProgress?.mode;
   }
 
   int get _materiasIniciadas => _examHistory.map((e) => e.subject).toSet().length;
@@ -1743,13 +1888,10 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _continuarEstudio(BuildContext context, Map<String, dynamic> materia) async {
-    // Check if there's partial progress
-    final partialProgress = await StorageService.getPartialProgress();
+    // Check if there's partial progress for this subject
+    final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
     
-    if (partialProgress != null && 
-        partialProgress.subject == materia['nombre'].toString() &&
-        partialProgress.questionPool != null) {
-      
+    if (partialProgress != null && partialProgress.questionPool != null) {
       // Directly continue the quiz without showing mode selection
       final isTestMode = partialProgress.mode == 'test';
       
@@ -1793,13 +1935,27 @@ Widget build(BuildContext context) {
   
   // Determine if we should show "Continuar estudiando" or "Empieza por aquí"
   // Show "Continuar estudiando" if the most recent activity is practice mode OR if there's partial progress
-  final bool hasHistory = ultimoModo == 'practice' || _partialProgress != null;
+  final bool hasHistory = ultimoModo == 'practice' || _mostRecentPartialProgress != null;
   final String? modoLabel = ultimoModo != null ? _modoLabel(ultimoModo) : null;
   
   // If there's partial progress, update the label to show it's a continuation
-  final String? displayLabel = _partialProgress != null 
-      ? 'Continuar (${(_partialProgress!.completionPercentage * 100).toInt()}%)'
+  final String? displayLabel = _mostRecentPartialProgress != null 
+      ? 'Continuar (${(_mostRecentPartialProgress!.completionPercentage * 100).toInt()}%)'
       : modoLabel;
+
+  // Prepare list of all subjects in progress for ContinueStudyingCard
+  final allSubjectsInProgress = _allPartialProgress.entries.map((entry) {
+    return {
+      'nombre': entry.key,
+      'imagen': widget.materias.firstWhere(
+        (m) => m['nombre'] == entry.key,
+        orElse: () => widget.materias.first,
+      )['Imagen'],
+      'progress': entry.value.completionPercentage,
+      'currentQuestion': entry.value.currentQuestionIndex + 1,
+      'totalQuestions': entry.value.totalQuestions,
+    };
+  }).toList();
 
   final Widget header = PanelEstudioHeader(
     userName: _userName,
@@ -1835,6 +1991,12 @@ Widget build(BuildContext context) {
         MaterialPageRoute(builder: (context) => const PantallaHistorialExamenes()),
       );
     },
+    onOpenAbout: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PantallaAcercaDe()),
+      );
+    },
     onLogout: () => _handleLogout(context),
   );
 
@@ -1848,6 +2010,7 @@ Widget build(BuildContext context) {
     darkGradientColor: AppColors.darkCard,
     darkTextColor: AppColors.darkText,
     lightTextColor: AppColors.lightText,
+    allSubjectsInProgress: allSubjectsInProgress,
   );
 
   final Widget summary = ProgressSummary(
@@ -1867,8 +2030,8 @@ Widget build(BuildContext context) {
     final stats = _statsMateria(nombreMateria);
 
     // Check if this subject has partial progress
-    final hasPartialProgress = _partialProgress != null && 
-        _partialProgress!.subject == nombreMateria;
+    final subjectProgress = _allPartialProgress[nombreMateria];
+    final progressPercentage = subjectProgress?.completionPercentage ?? 0.0;
 
     return SubjectCard(
       nombre: nombreMateria,
@@ -1877,7 +2040,8 @@ Widget build(BuildContext context) {
       tieneIntentos: stats.tieneIntentos,
       ultimoPct: stats.ultimoPct,
       esMateriaActual: ultimaMateria != null && nombreMateria == ultimaMateria,
-      onTap: () => hasPartialProgress ? _continuarEstudio(context, materia) : _mostrarSeleccionModo(context, materia),
+      progressPercentage: progressPercentage,
+      onTap: () => _mostrarSeleccionModo(context, materia),
       darkGradientColor: AppColors.darkCard,
       darkTextColor: AppColors.darkText,
       lightTextColor: AppColors.lightText,
@@ -2077,10 +2241,6 @@ Widget build(BuildContext context) {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
   void _mostrarSeleccionModo(BuildContext context, Map<String, dynamic> materia) async {
     final globalStreak = await StorageService.getGlobalStreakData();
     final lives = globalStreak.lives;
@@ -2092,6 +2252,9 @@ Widget build(BuildContext context) {
         ? totalPreguntasPool
         : limiteTest;
 
+    // Check if there's partial progress for this subject
+    final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2102,6 +2265,12 @@ Widget build(BuildContext context) {
         preguntasTest: preguntasTest,
         lives: lives,
         rachaActiva: _rachaActivaMax,
+        onContinue: partialProgress != null ? () {
+          Navigator.pop(context);
+          _continuarEstudio(context, materia);
+        } : null,
+        currentQuestion: partialProgress?.currentQuestionIndex != null ? partialProgress!.currentQuestionIndex + 1 : null,
+        totalQuestions: partialProgress?.totalQuestions,
         onPractice: () {
           Navigator.pop(context);
           _irAlQuiz(context, materia, false);
@@ -2120,11 +2289,10 @@ Widget build(BuildContext context) {
 
   void _irAlQuiz(BuildContext context, Map<String, dynamic> materia, bool modoTest) async {
     // Check if there's partial progress for this subject and mode
-    final partialProgress = await StorageService.getPartialProgress();
+    final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
     
     // If there's partial progress that matches the subject and mode, restore it directly
     if (partialProgress != null && 
-        partialProgress.subject == materia['nombre'].toString() &&
         partialProgress.mode == (modoTest ? 'test' : 'practice') &&
         partialProgress.questionPool != null) {
       
@@ -2535,7 +2703,7 @@ class _QuizPageState extends State<QuizPage> {
     final examResult = ExamResult(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       subject: widget.tituloMateria,
-      date: DateTime.now(),
+      date: tz.TZDateTime.now(tz.local),
       score: puntaje,
       totalQuestions: preguntas.length,
       mode: widget.isTestMode ? 'test' : 'practice',
@@ -2549,7 +2717,7 @@ class _QuizPageState extends State<QuizPage> {
     StorageService.saveExamResult(examResult);
     
     // Clear partial progress since exam is now complete
-    StorageService.clearPartialProgress();
+    StorageService.clearPartialProgress(widget.tituloMateria);
   }
 
   List<Map<String, dynamic>> _getAllQuestionsWithAnswers() {
@@ -2879,9 +3047,9 @@ class _QuizPageState extends State<QuizPage> {
               margin: const EdgeInsets.only(top: 20),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: esModoOscuro ? Colors.blue.withValues(alpha: 0.1) : Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(color: esModoOscuro ? Colors.blue.withValues(alpha: 0.3) : Colors.blue.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2894,7 +3062,7 @@ class _QuizPageState extends State<QuizPage> {
                         "Explicación:",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
+                          color: esModoOscuro ? Colors.blue.shade300 : Colors.black87,
                           fontSize: 16,
                         ),
                       ),
@@ -2904,7 +3072,7 @@ class _QuizPageState extends State<QuizPage> {
                   Text(
                     pregunta['explicacion'],
                     style: TextStyle(
-                      color: Colors.blue.shade900,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                       fontSize: 14,
                       height: 1.4,
                     ),
@@ -3679,7 +3847,7 @@ class PantallaOnboardingStreak extends StatelessWidget {
               _buildFeatureCard(
                 icon: Icons.calendar_today,
                 title: "Racha Diaria",
-                description: "Completa dos exámenes por día (≥60% de aciertos) para mantener tu racha activa",
+                description: "Completa un examen por día (≥60% de aciertos) para mantener tu racha activa",
                 esModoOscuro: esModoOscuro,
                 titleFontSize: cardTitleFontSize,
                 descFontSize: cardDescFontSize,
@@ -3982,7 +4150,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
     final examResult = ExamResult(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       subject: widget.tituloMateria,
-      date: DateTime.now(),
+      date: tz.TZDateTime.now(tz.local),
       score: puntaje,
       totalQuestions: preguntas.length,
       mode: 'streak',
@@ -3994,6 +4162,9 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
     );
     
     StorageService.saveExamResult(examResult);
+    
+    // Clear partial progress since exam is now complete
+    StorageService.clearPartialProgress(widget.tituloMateria);
     
     if (mounted) {
       Navigator.pushReplacement(
@@ -4720,10 +4891,6 @@ class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
               ),
           );
   }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
 }
 
 // 10. PANTALLA DE DETALLE DE EXAMEN
@@ -4779,9 +4946,9 @@ class ExamDetailScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: esModoOscuro ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05),
+                        color: esModoOscuro ? Colors.blue.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4794,7 +4961,7 @@ class ExamDetailScreen extends StatelessWidget {
                                 "Explicación:",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                                  color: esModoOscuro ? Colors.blue.shade300 : Colors.black87,
                                   fontSize: 12,
                                 ),
                               ),
@@ -4805,7 +4972,7 @@ class ExamDetailScreen extends StatelessWidget {
                             questionData['explanation'],
                             style: TextStyle(
                               fontSize: 13,
-                              color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black54,
+                              color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                             ),
                           ),
                         ],
@@ -4863,6 +5030,129 @@ class ExamDetailScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// =============================================================
+// PANTALLA "ACERCA DE LA APLICACIÓN"
+// =============================================================
+
+class PantallaAcercaDe extends StatelessWidget {
+  const PantallaAcercaDe({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+    
+    return Scaffold(
+      backgroundColor: esModoOscuro ? AppColors.darkBackground : AppColors.lightBackground,
+      appBar: AppBar(
+        title: const Text('Acerca de la aplicación'),
+        backgroundColor: esModoOscuro ? AppColors.darkAppBar : Colors.indigo,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.flight,
+              size: 80,
+              color: Colors.indigo,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Piloto de Aviación - Quiz App',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Una aplicación de aprendizaje para pilotos de aviación.',
+              style: TextStyle(
+                fontSize: 16,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildInfoCard(
+              esModoOscuro,
+              'Versión',
+              '1.0.0',
+            ),
+            const SizedBox(height: 16),
+            _buildInfoCard(
+              esModoOscuro,
+              'Desarrollador',
+              'Devin AI',
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Sistema de Racha',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Completa 1 examen por día (≥60% de aciertos) para mantener tu racha activa. Si fallas un examen, pierdes una vida. Tienes 3 vidas que se recargan a las 00:00.',
+              style: TextStyle(
+                fontSize: 14,
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Volver'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(bool esModoOscuro, String label, String value) {
+    return Card(
+      color: esModoOscuro ? AppColors.darkCard : AppColors.lightCard,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
