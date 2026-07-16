@@ -35,9 +35,7 @@ class SubjectCard extends StatelessWidget {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = esModoOscuro ? darkTextColor : lightTextColor;
 
-    final String estadoLabel = tieneIntentos
-        ? 'Último resultado: ${ultimoPct!.round()} por ciento'
-        : 'Sin intentos';
+    final String estadoLabel = 'Progreso: ${(progressPercentage * 100).round()}%';
     final String rachaLabel = streakDays > 0
         ? '. Racha activa de $streakDays días'
         : '';
@@ -87,7 +85,7 @@ class SubjectCard extends StatelessWidget {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         bool esEscritorio = constraints.maxWidth > 600;
-                        double escala = esEscritorio ? 0.85 : 0.95;
+                        double escala = esEscritorio ? 0.78 : 0.88;
                         return Transform.scale(
                           scale: escala,
                           child: Stack(
@@ -101,21 +99,6 @@ class SubjectCard extends StatelessWidget {
                                 errorBuilder: (context, error, stackTrace) =>
                                     const Icon(Icons.error),
                               ),
-                              // Subtle circular progress indicator
-                              if (progressPercentage > 0 && progressPercentage < 1.0)
-                                Positioned.fill(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: CircularProgressIndicator(
-                                      value: progressPercentage,
-                                      strokeWidth: 2,
-                                      backgroundColor: Colors.transparent,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        accent.withValues(alpha: 0.4),
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               if (streakDays > 0)
                                 Positioned(
                                   top: 4,
@@ -181,26 +164,43 @@ class SubjectCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 11,
                       height: 1.1,
                       color: textColor,
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    tieneIntentos
-                        ? 'Último: ${ultimoPct!.round()}%'
-                        : 'Sin intentos',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: textColor.withValues(alpha: 0.75),
-                    ),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(1.5),
+                          child: LinearProgressIndicator(
+                            value: progressPercentage,
+                            minHeight: 3,
+                            backgroundColor: esModoOscuro
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.06),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              progressPercentage >= 1.0 ? Colors.green : accent,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (progressPercentage > 0) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '${(progressPercentage * 100).round()}%',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: progressPercentage >= 1.0 ? Colors.green : textColor.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
+import '../../models/life_data.dart';
 
 class ModeSelectorSheet extends StatelessWidget {
   static const Color practicaColor = Color(0xFF0091D5);
@@ -10,7 +12,7 @@ class ModeSelectorSheet extends StatelessWidget {
   final String materiaNombre;
   final int preguntasPractica;
   final int preguntasTest;
-  final int lives;
+  final List<LifeDisplayData> lives;
   final int rachaActiva;
   final VoidCallback onPractice;
   final VoidCallback onTest;
@@ -40,6 +42,8 @@ class ModeSelectorSheet extends StatelessWidget {
     return '$lives $sustantivo $adjetivo';
   }
 
+  int get availableLives => lives.where((life) => life.isAvailable).length;
+
   @override
   Widget build(BuildContext context) {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
@@ -50,7 +54,7 @@ class ModeSelectorSheet extends StatelessWidget {
     final Color secondaryTextColor = esModoOscuro
         ? const Color(0xFF94A3B8)
         : const Color(0xFF475569);
-    final bool hasLives = lives > 0;
+    final bool hasLives = availableLives > 0;
 
     final double maxHeight = MediaQuery.of(context).size.height * 0.85;
 
@@ -158,7 +162,7 @@ class ModeSelectorSheet extends StatelessWidget {
                 button: true,
                 enabled: hasLives,
                 label: hasLives
-                    ? 'Seleccionar Modo Racha. ${_vidasLabel(lives)}. Racha activa de $rachaActiva días.'
+                    ? 'Seleccionar Modo Racha. ${_vidasLabel(availableLives)}. Racha activa de $rachaActiva días.'
                     : 'Modo Racha deshabilitado. Sin vidas disponibles.',
                 child: _ModeCard(
                   color: rachaColor,
@@ -166,7 +170,7 @@ class ModeSelectorSheet extends StatelessWidget {
                   title: '¡Racha!',
                   description: hasLives
                       ? 'Examen cronometrado de racha diaria'
-                      : 'No tienes vidas disponibles. Espera a que se recarguen (00:00).',
+                      : 'No tienes vidas disponibles. Algunas están recargando.',
                   disabled: !hasLives,
                   trailing: _HeartsRow(lives: lives),
                   extra: Padding(
@@ -174,7 +178,7 @@ class ModeSelectorSheet extends StatelessWidget {
                     child: Row(
                       children: [
                         Text(
-                          _vidasLabel(lives),
+                          _vidasLabel(availableLives),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -342,7 +346,7 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _HeartsRow extends StatelessWidget {
-  final int lives;
+  final List<LifeDisplayData> lives;
 
   const _HeartsRow({required this.lives});
 
@@ -351,15 +355,58 @@ class _HeartsRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (index) {
-        final bool disponible = index < lives;
+        final life = lives[index];
         return Padding(
-          padding: const EdgeInsets.only(left: 2),
-          child: Icon(
-            disponible ? Icons.favorite : Icons.favorite_border,
-            size: 15,
-            color: disponible
-                ? ModeSelectorSheet.corazonDisponible
-                : ModeSelectorSheet.corazonGastado,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: life.isAvailable 
+                      ? ModeSelectorSheet.corazonDisponible.withValues(alpha: 0.1)
+                      : ModeSelectorSheet.corazonGastado.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: life.isAvailable 
+                        ? ModeSelectorSheet.corazonDisponible.withValues(alpha: 0.3)
+                        : ModeSelectorSheet.corazonGastado.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    life.isAvailable ? Icons.favorite : Icons.heart_broken,
+                    size: 18,
+                    color: life.isAvailable
+                        ? ModeSelectorSheet.corazonDisponible
+                        : ModeSelectorSheet.corazonGastado,
+                  ),
+                ),
+              ),
+              if (!life.isAvailable && life.rechargeTime != null)
+                StreamBuilder(
+                  stream: Stream.periodic(const Duration(seconds: 1), (count) => count),
+                  builder: (context, snapshot) {
+                    final now = tz.TZDateTime.now(tz.local);
+                    final remaining = life.rechargeTime!.difference(now);
+                    if (remaining.isNegative) {
+                      return const SizedBox.shrink();
+                    }
+                    final hours = remaining.inHours;
+                    final minutes = remaining.inMinutes % 60;
+                    return Text(
+                      '${hours}h ${minutes}m',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: ModeSelectorSheet.corazonGastado,
+                      ),
+                    );
+                  },
+                ),
+            ],
           ),
         );
       }),

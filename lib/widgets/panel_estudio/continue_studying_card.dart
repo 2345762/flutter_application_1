@@ -33,7 +33,6 @@ class ContinueStudyingCard extends StatelessWidget {
 
     final String semanticsLabel = hasHistory
         ? 'Continuar estudiando $materiaNombre. Último modo: $modoLabel.'
-              '${resultadoPct != null ? ' Último resultado: ${resultadoPct!.round()} por ciento.' : ''}'
         : 'Empieza por aquí: $materiaNombre. Elige tu modo de estudio.';
 
     return Semantics(
@@ -45,7 +44,7 @@ class ContinueStudyingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: accent.withValues(alpha: 0.35)),
@@ -63,11 +62,11 @@ class ContinueStudyingCard extends StatelessWidget {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(32),
+                borderRadius: BorderRadius.circular(24),
                 child: Image.asset(
                   imagenAsset,
-                  width: 56,
-                  height: 56,
+                  width: 48,
+                  height: 48,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
                       const Icon(Icons.error),
@@ -110,20 +109,6 @@ class ContinueStudyingCard extends StatelessWidget {
                           color: textColor.withValues(alpha: 0.7),
                         ),
                       ),
-                      if (resultadoPct != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Último resultado: ${resultadoPct!.round()}%',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: accent,
-                            ),
-                          ),
-                        ),
                     ] else
                       Text(
                         'Elige tu modo de estudio',
@@ -139,8 +124,8 @@ class ContinueStudyingCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: const BoxDecoration(
                   color: accent,
                   shape: BoxShape.circle,
@@ -148,7 +133,7 @@ class ContinueStudyingCard extends StatelessWidget {
                 child: const Icon(
                   Icons.arrow_forward,
                   color: Colors.white,
-                  size: 18,
+                  size: 16,
                 ),
               ),
             ],

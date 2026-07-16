@@ -25,7 +25,8 @@ import 'data/performance_y_motores.dart';
 import 'data/operaciones_de_vuelo.dart';
 import 'data/peso_y_balance.dart';
 import 'data/meteorologia.dart';
-import 'data/reglamentacion.dart';  
+import 'data/reglamentacion.dart';
+import 'models/life_data.dart';  
 
 // =============================================================
 // WIDGETS DE PRESENTACIÓN DEL PANEL DE ESTUDIO
@@ -74,7 +75,6 @@ String _formatDate(DateTime date) {
 // =============================================================
 
 class StreakData {
-  final String subject;
   final int streakDays;
   final DateTime lastExamDate;
   final int totalExams;
@@ -83,7 +83,6 @@ class StreakData {
   final DateTime? lastDailyResetDate; // When daily count was last reset
 
   StreakData({
-    required this.subject,
     required this.streakDays,
     required this.lastExamDate,
     required this.totalExams,
@@ -94,7 +93,6 @@ class StreakData {
 
   Map<String, dynamic> toJson() {
     return {
-      'subject': subject,
       'streakDays': streakDays,
       'lastExamDate': lastExamDate.toIso8601String(),
       'totalExams': totalExams,
@@ -106,10 +104,11 @@ class StreakData {
 
   factory StreakData.fromJson(Map<String, dynamic> json) {
     return StreakData(
-      subject: json['subject'] as String,
-      streakDays: json['streakDays'] as int,
-      lastExamDate: DateTime.parse(json['lastExamDate'] as String),
-      totalExams: json['totalExams'] as int,
+      streakDays: json['streakDays'] as int? ?? 0,
+      lastExamDate: json['lastExamDate'] != null 
+          ? DateTime.parse(json['lastExamDate'] as String) 
+          : DateTime.now(),
+      totalExams: json['totalExams'] as int? ?? 0,
       maxStreakDays: json['maxStreakDays'] as int? ?? 0,
       dailyExamsPassed: json['dailyExamsPassed'] as int? ?? 0,
       lastDailyResetDate: json['lastDailyResetDate'] != null 
@@ -119,29 +118,67 @@ class StreakData {
   }
 }
 
-class GlobalStreakData {
-  final int lives; // Global lives (shared across all subjects)
-  final DateTime? lastLivesRechargeDate; // When lives were last recharged
+class LifeData {
+  final bool isAvailable;
+  final DateTime? rechargeTime; // When this life will be available (8 hours after being lost)
 
-  GlobalStreakData({
-    required this.lives,
-    this.lastLivesRechargeDate,
+  LifeData({
+    required this.isAvailable,
+    this.rechargeTime,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'lives': lives,
-      'lastLivesRechargeDate': lastLivesRechargeDate?.toIso8601String(),
+      'isAvailable': isAvailable,
+      'rechargeTime': rechargeTime?.toIso8601String(),
+    };
+  }
+
+  factory LifeData.fromJson(Map<String, dynamic> json) {
+    return LifeData(
+      isAvailable: json['isAvailable'] as bool? ?? true,
+      rechargeTime: json['rechargeTime'] != null 
+          ? DateTime.parse(json['rechargeTime'] as String) 
+          : null,
+    );
+  }
+}
+
+class GlobalStreakData {
+  final List<LifeData> lives; // Individual lives with their recharge times
+
+  GlobalStreakData({
+    required this.lives,
+  });
+
+  // Constructor for default 3 available lives
+  factory GlobalStreakData.defaultLives() {
+    return GlobalStreakData(
+      lives: List.generate(3, (_) => LifeData(isAvailable: true)),
+    );
+  }
+
+  // Get count of available lives
+  int get availableLives => lives.where((life) => life.isAvailable).length;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'lives': lives.map((life) => life.toJson()).toList(),
     };
   }
 
   factory GlobalStreakData.fromJson(Map<String, dynamic> json) {
-    return GlobalStreakData(
-      lives: json['lives'] as int? ?? 3,
-      lastLivesRechargeDate: json['lastLivesRechargeDate'] != null 
-          ? DateTime.parse(json['lastLivesRechargeDate'] as String) 
-          : null,
-    );
+    final List<dynamic> livesJson = json['lives'] as List? ?? [];
+    final List<LifeData> lives = livesJson
+        .map((lifeJson) => LifeData.fromJson(lifeJson as Map<String, dynamic>))
+        .toList();
+    
+    // If no lives data or empty, create default 3 lives
+    if (lives.isEmpty) {
+      return GlobalStreakData.defaultLives();
+    }
+    
+    return GlobalStreakData(lives: lives);
   }
 }
 
@@ -278,12 +315,7 @@ class StorageService {
 
   static Future<void> saveStreakData(StreakData streakData) async {
     final prefs = await SharedPreferences.getInstance();
-    final streakDataMap = prefs.getString(_streakKey) ?? '{}';
-    final Map<String, dynamic> allStreaks = json.decode(streakDataMap);
-    
-    allStreaks[streakData.subject] = streakData.toJson();
-    
-    await prefs.setString(_streakKey, json.encode(allStreaks));
+    await prefs.setString(_streakKey, json.encode(streakData.toJson()));
   }
 
   static Future<void> saveGlobalStreakData(GlobalStreakData globalData) async {
@@ -300,53 +332,35 @@ class StorageService {
     }
     
     // Return default if not exists
-    return GlobalStreakData(lives: 3);
+    return GlobalStreakData.defaultLives();
   }
 
-  static Future<StreakData?> getStreakData(String subject) async {
+  static Future<StreakData?> getStreakData() async {
     final prefs = await SharedPreferences.getInstance();
-    final streakDataMap = prefs.getString(_streakKey) ?? '{}';
-    final Map<String, dynamic> allStreaks = json.decode(streakDataMap);
+    final streakDataStr = prefs.getString(_streakKey);
     
-    if (allStreaks.containsKey(subject)) {
-      return StreakData.fromJson(allStreaks[subject] as Map<String, dynamic>);
+    if (streakDataStr != null) {
+      return StreakData.fromJson(json.decode(streakDataStr));
     }
     return null;
   }
 
-  static Future<Map<String, StreakData>> getAllStreakData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final streakDataMap = prefs.getString(_streakKey) ?? '{}';
-    final Map<String, dynamic> allStreaks = json.decode(streakDataMap);
-    
-    Map<String, StreakData> result = {};
-    for (var key in allStreaks.keys) {
-      result[key] = StreakData.fromJson(allStreaks[key] as Map<String, dynamic>);
-    }
-    return result;
-  }
-
   static Future<int> getTotalStreakExams() async {
-    final allStreaks = await getAllStreakData();
-    int total = 0;
-    for (var streak in allStreaks.values) {
-      total += streak.totalExams; // This now only counts passed exams
-    }
-    return total;
+    final streakData = await getStreakData();
+    return streakData?.totalExams ?? 0;
   }
 
   static Future<void> updateStreakAfterExam(String subject, bool passed, double scorePercentage) async {
-    final currentStreak = await getStreakData(subject);
+    final currentStreak = await getStreakData();
     final globalStreak = await getGlobalStreakData();
     final now = tz.TZDateTime.now(tz.local);
     final today = _getChileanDate();
 
-    // Recharge global lives if it's a new day (00:00 Chilean time)
-    GlobalStreakData globalWithRechargedLives = await _rechargeGlobalLivesIfNeeded(globalStreak, now);
+    // Recharge global lives based on individual life recharge times
+    GlobalStreakData globalWithRechargedLives = await _rechargeGlobalLivesIfNeeded(globalStreak);
 
     // Check if we should use existing or create new
     var workingStreak = currentStreak ?? StreakData(
-      subject: subject,
       streakDays: 0,
       lastExamDate: now,
       totalExams: 0,
@@ -359,7 +373,6 @@ class StorageService {
     if (workingStreak.lastDailyResetDate == null || 
         _isBeforeTodayInChile(workingStreak.lastDailyResetDate!)) {
       workingStreak = StreakData(
-        subject: workingStreak.subject,
         streakDays: workingStreak.streakDays,
         lastExamDate: workingStreak.lastExamDate,
         totalExams: workingStreak.totalExams,
@@ -374,11 +387,21 @@ class StorageService {
     int newDailyExamsPassed = workingStreak.dailyExamsPassed;
     int newStreakDays = workingStreak.streakDays;
     int newMaxStreak = workingStreak.maxStreakDays;
-    int newLives = globalWithRechargedLives.lives;
-
+    
     // Deduct a life if failed the exam
+    List<LifeData> updatedLives = List.from(globalWithRechargedLives.lives);
     if (!passedThreshold) {
-      newLives = newLives > 0 ? newLives - 1 : 0;
+      // Find first available life and mark it as unavailable with 8-hour recharge
+      for (int i = 0; i < updatedLives.length; i++) {
+        if (updatedLives[i].isAvailable) {
+          final rechargeTime = now.add(const Duration(hours: 8));
+          updatedLives[i] = LifeData(
+            isAvailable: false,
+            rechargeTime: rechargeTime,
+          );
+          break; // Only deduct one life per failed exam
+        }
+      }
     }
 
     if (passedThreshold) {
@@ -389,7 +412,7 @@ class StorageService {
         newStreakDays++;
         newDailyExamsPassed = 0; // Reset for next day
         
-        // Update max streak if needed
+        // Update max streak if needed (this captures the user's best streak)
         if (newStreakDays > newMaxStreak) {
           newMaxStreak = newStreakDays;
         }
@@ -397,13 +420,14 @@ class StorageService {
     }
 
     // Check if streak should be lost (no exams in 24h window)
+    // Only reset current streak, NOT max streak
     final hoursSinceLastExam = now.difference(workingStreak.lastExamDate).inHours;
-    if (hoursSinceLastExam >= 24) {
+    if (hoursSinceLastExam >= 24 && workingStreak.streakDays > 0) {
       newStreakDays = 0;
+      // Note: newMaxStreak is NOT reset here, preserving the user's best streak
     }
 
     final updatedStreak = StreakData(
-      subject: subject,
       streakDays: newStreakDays,
       lastExamDate: now,
       totalExams: workingStreak.totalExams + (passedThreshold ? 1 : 0), // Only count passed exams
@@ -413,28 +437,37 @@ class StorageService {
     );
 
     final updatedGlobalStreak = GlobalStreakData(
-      lives: newLives,
-      lastLivesRechargeDate: globalWithRechargedLives.lastLivesRechargeDate,
+      lives: updatedLives,
     );
 
     await saveStreakData(updatedStreak);
     await saveGlobalStreakData(updatedGlobalStreak);
   }
 
-  static Future<GlobalStreakData> _rechargeGlobalLivesIfNeeded(GlobalStreakData globalStreak, DateTime now) async {
-    final today = _getChileanDate();
-    final lastRecharge = globalStreak.lastLivesRechargeDate;
+  static Future<GlobalStreakData> _rechargeGlobalLivesIfNeeded(GlobalStreakData globalStreak) async {
+    final now = tz.TZDateTime.now(tz.local);
+    final List<LifeData> updatedLives = [];
     
-    // Recharge if it's a new day (00:00 Chilean time)
-    if (lastRecharge == null || 
-        _isBeforeTodayInChile(lastRecharge)) {
-      return GlobalStreakData(
-        lives: 3, // Recharge to 3
-        lastLivesRechargeDate: today,
-      );
+    for (final life in globalStreak.lives) {
+      if (life.isAvailable) {
+        // Life is already available, keep it as is
+        updatedLives.add(life);
+      } else if (life.rechargeTime != null) {
+        // Check if recharge time has passed
+        if (now.isAfter(life.rechargeTime!)) {
+          // Recharge this life
+          updatedLives.add(LifeData(isAvailable: true));
+        } else {
+          // Still recharging, keep current state
+          updatedLives.add(life);
+        }
+      } else {
+        // No recharge time set, make available
+        updatedLives.add(LifeData(isAvailable: true));
+      }
     }
     
-    return globalStreak;
+    return GlobalStreakData(lives: updatedLives);
   }
 
   static Future<void> saveExamResult(ExamResult result) async {
@@ -494,20 +527,19 @@ class StorageService {
           };
         }
         
-        // Update streak data from local storage
-        final streakData = await getStreakData(subject);
+        // Update global streak data
+        final streakData = await getStreakData();
         if (streakData != null) {
-          streaks[subject]['currentStreak'] = streakData.streakDays;
-          streaks[subject]['maxStreak'] = streakData.maxStreakDays;
-          streaks[subject]['totalPassed'] = streakData.totalExams;
+          userData['globalStreak'] = streakData.toJson();
         }
         
         // Update global lives
         final globalStreak = await getGlobalStreakData();
-        userData['globalLives'] = globalStreak.lives;
-        userData['lastLivesRechargeDate'] = globalStreak.lastLivesRechargeDate?.toIso8601String();
-        
-        userData['streaks'] = streaks;
+        userData['globalLives'] = globalStreak.availableLives;
+        userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
+      } else {
+        // If no subjects have been started yet, initialize with empty structure
+        userData['subjects'] = {};
       }
       
       userData['lastUpdated'] = FieldValue.serverTimestamp();
@@ -544,38 +576,35 @@ class StorageService {
         }
         
         // Load global lives
-        if (userData.containsKey('globalLives')) {
-          final globalLives = userData['globalLives'] as int;
-          final lastRecharge = userData['lastLivesRechargeDate'] as String?;
+        if (userData.containsKey('livesData')) {
+          final livesDataJson = userData['livesData'] as List<dynamic>;
+          final List<LifeData> lives = livesDataJson
+              .map((lifeJson) => LifeData.fromJson(lifeJson as Map<String, dynamic>))
+              .toList();
           
-          final globalStreak = GlobalStreakData(
-            lives: globalLives,
-            lastLivesRechargeDate: lastRecharge != null ? DateTime.parse(lastRecharge) : null,
+          final globalStreak = GlobalStreakData(lives: lives);
+          await saveGlobalStreakData(globalStreak);
+        } else if (userData.containsKey('globalLives')) {
+          // Legacy support for old format
+          final globalLives = userData['globalLives'] as int;
+          final List<LifeData> lives = List.generate(
+            globalLives,
+            (_) => LifeData(isAvailable: true),
           );
+          // Fill remaining lives as unavailable if count < 3
+          while (lives.length < 3) {
+            lives.add(LifeData(isAvailable: false, rechargeTime: DateTime.now().add(const Duration(hours: 8))));
+          }
+          
+          final globalStreak = GlobalStreakData(lives: lives);
           await saveGlobalStreakData(globalStreak);
         }
         
-        // Load streak data for each subject
-        if (userData.containsKey('streaks')) {
-          final streaks = userData['streaks'] as Map<String, dynamic>;
-          final today = _getChileanDate();
-          
-          for (var entry in streaks.entries) {
-            final subject = entry.key;
-            final streakInfo = entry.value as Map<String, dynamic>;
-            
-            final streakData = StreakData(
-              subject: subject,
-              streakDays: streakInfo['currentStreak'] as int? ?? 0,
-              lastExamDate: tz.TZDateTime.now(tz.local),
-              totalExams: streakInfo['totalPassed'] as int? ?? 0,
-              maxStreakDays: streakInfo['maxStreak'] as int? ?? 0,
-              dailyExamsPassed: 0,
-              lastDailyResetDate: today,
-            );
-            
-            await saveStreakData(streakData);
-          }
+        // Load global streak data
+        if (userData.containsKey('globalStreak')) {
+          final streakInfo = userData['globalStreak'] as Map<String, dynamic>;
+          final streakData = StreakData.fromJson(streakInfo);
+          await saveStreakData(streakData);
         }
         
         // Load study progress for each subject
@@ -1065,7 +1094,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
           .get();
 
       if (query.docs.isNotEmpty) {
-        var userData = query.docs.first.data() as Map<String, dynamic>;
+        var userData = query.docs.first.data();
         bool estaHabilitado = userData['habilitado'] ?? true;
 
         if (!estaHabilitado) {
@@ -1218,7 +1247,7 @@ class MiPantallaLogin extends StatefulWidget {
   const MiPantallaLogin({super.key, required this.themeNotifier});
 
   @override
-  _MiPantallaLoginState createState() => _MiPantallaLoginState();
+  State<MiPantallaLogin> createState() => _MiPantallaLoginState();
 }
 
 class _MiPantallaLoginState extends State<MiPantallaLogin> {
@@ -1732,7 +1761,7 @@ class MainMenu extends StatefulWidget {
 }
 
 class _MainMenuState extends State<MainMenu> {
-  Map<String, StreakData> _streakData = {};
+  StreakData? _globalStreakData;
   List<ExamResult> _examHistory = [];
   Map<String, PartialExamProgress> _allPartialProgress = {};
   String _userName = '';
@@ -1744,7 +1773,7 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _loadStreakData() async {
-    final streaks = await StorageService.getAllStreakData();
+    final streakData = await StorageService.getStreakData();
     final history = await StorageService.getExamHistory();
     final allPartialProgress = await StorageService.getAllPartialProgress();
     final prefs = await SharedPreferences.getInstance();
@@ -1752,7 +1781,7 @@ class _MainMenuState extends State<MainMenu> {
 
     if (mounted) {
       setState(() {
-        _streakData = streaks;
+        _globalStreakData = streakData;
         _examHistory = history;
         _allPartialProgress = allPartialProgress;
         _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
@@ -1843,8 +1872,7 @@ class _MainMenuState extends State<MainMenu> {
   int get _materiasIniciadas => _examHistory.map((e) => e.subject).toSet().length;
 
   int get _rachaActivaMax {
-    if (_streakData.isEmpty) return 0;
-    return _streakData.values.map((s) => s.streakDays).reduce((a, b) => a > b ? a : b);
+    return _globalStreakData?.streakDays ?? 0;
   }
 
   double? get _mejorResultadoPct {
@@ -1895,6 +1923,8 @@ class _MainMenuState extends State<MainMenu> {
   Future<void> _continuarEstudio(BuildContext context, Map<String, dynamic> materia) async {
     // Check if there's partial progress for this subject
     final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
+    
+    if (!context.mounted) return;
     
     if (partialProgress != null && partialProgress.questionPool != null) {
       // Directly continue the quiz without showing mode selection
@@ -2014,8 +2044,7 @@ Widget build(BuildContext context) {
   );
 
   Widget buildSubjectCard(Map<String, dynamic> materia) {
-    final streakInfo = _streakData[materia['nombre']];
-    final streakDays = streakInfo?.streakDays ?? 0;
+    final streakDays = _globalStreakData?.streakDays ?? 0;
     final nombreMateria = materia['nombre'].toString();
     final stats = _statsMateria(nombreMateria);
 
@@ -2048,7 +2077,7 @@ Widget build(BuildContext context) {
 
   if (!esEscritorioAncho) {
     final double vGap = esAltoReducido ? 8.0 : 10.0;
-    final double gridAspectRatio = esAltoReducido ? 1.28 : 1.15;
+    final double gridAspectRatio = esAltoReducido ? 1.34 : 1.22;
     // El contenido se envuelve en scroll (como en escritorio) en vez de
     // confinar la grilla a un Expanded: en móviles normales todo entra sin
     // desplazamiento visible; en móviles pequeños el scroll actúa como
@@ -2109,7 +2138,7 @@ Widget build(BuildContext context) {
                     crossAxisCount: 3,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.0,
+                    childAspectRatio: 1.08,
                   ),
                   itemCount: widget.materias.length,
                   itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
@@ -2127,8 +2156,8 @@ Widget build(BuildContext context) {
 }
 
   void _mostrarResumenStreak(BuildContext context) async {
-    final allStreaks = await StorageService.getAllStreakData();
     final globalStreak = await StorageService.getGlobalStreakData();
+    final streakData = await StorageService.getStreakData();
     
     if (context.mounted) {
       showDialog(
@@ -2142,81 +2171,77 @@ Widget build(BuildContext context) {
               const Text("Resumen de Rachas", style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
-          content: allStreaks.isEmpty
+          content: streakData == null
               ? const Text("Aún no has completado exámenes de racha.")
               : SingleChildScrollView(
                   child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Global lives display
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    // Global streak display
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.local_fire_department, color: Colors.orange, size: 24),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Racha Global: ${streakData.streakDays} días",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Racha Máxima: ${streakData.maxStreakDays} días",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Total Exámenes Aprobados: ${streakData.totalExams}",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Global lives display with improved design
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
                         children: [
-                          const Text("Vidas globales: ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          const Text("Vidas Disponibles", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: List.generate(3, (index) {
-                              return Icon(
-                                index < globalStreak.lives ? Icons.favorite : Icons.favorite_border,
-                                color: Colors.red,
-                                size: 20,
-                              );
+                              final life = globalStreak.lives[index];
+                              return _buildImprovedLifeDisplay(life, index);
                             }),
                           ),
                         ],
                       ),
                     ),
-                    ...allStreaks.entries.map((entry) {
-                      final streak = entry.value;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                streak.subject,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.local_fire_department, color: Colors.orange, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Racha actual: ${streak.streakDays} días",
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.emoji_events, color: Colors.amber, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Racha máxima: ${streak.maxStreakDays} días",
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Exámenes aprobados: ${streak.totalExams}",
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Último examen: ${_formatDate(streak.lastExamDate)}",
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
                   ],
                 ),
               ),
@@ -2231,9 +2256,79 @@ Widget build(BuildContext context) {
     }
   }
 
+  Widget _buildImprovedLifeDisplay(LifeData life, int index) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: life.isAvailable 
+                ? Colors.red.withValues(alpha: 0.1)
+                : Colors.grey.withValues(alpha: 0.1),
+            border: Border.all(
+              color: life.isAvailable 
+                  ? Colors.red.withValues(alpha: 0.3)
+                  : Colors.grey.withValues(alpha: 0.3),
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              life.isAvailable ? Icons.favorite : Icons.heart_broken,
+              color: life.isAvailable 
+                  ? Colors.red 
+                  : Colors.grey,
+              size: 28,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (!life.isAvailable && life.rechargeTime != null)
+          StreamBuilder(
+            stream: Stream.periodic(const Duration(seconds: 1), (tick) => tick),
+            builder: (context, snapshot) {
+              final now = tz.TZDateTime.now(tz.local);
+              final remaining = life.rechargeTime!.difference(now);
+              if (remaining.isNegative) {
+                return const Text(
+                  "Lista",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                );
+              }
+              final hours = remaining.inHours;
+              final minutes = remaining.inMinutes % 60;
+              final seconds = remaining.inSeconds % 60;
+              return Text(
+                '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              );
+            },
+          )
+        else
+          const Text(
+            "Lista",
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+      ],
+    );
+  }
+
   void _mostrarSeleccionModo(BuildContext context, Map<String, dynamic> materia) async {
     final globalStreak = await StorageService.getGlobalStreakData();
-    final lives = globalStreak.lives;
 
     final dynamic poolRaw = materia['pool'];
     final int totalPreguntasPool = poolRaw is List ? poolRaw.length : 0;
@@ -2245,6 +2340,16 @@ Widget build(BuildContext context) {
     // Check if there's partial progress for this subject
     final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
 
+    if (!context.mounted) return;
+
+    // Convert GlobalStreakData to simplified LifeDisplayData for UI
+    final livesDisplay = globalStreak.lives.map((life) {
+      return LifeDisplayData(
+        isAvailable: life.isAvailable,
+        rechargeTime: life.rechargeTime,
+      );
+    }).toList();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2253,7 +2358,7 @@ Widget build(BuildContext context) {
         materiaNombre: materia['nombre'].toString(),
         preguntasPractica: totalPreguntasPool,
         preguntasTest: preguntasTest,
-        lives: lives,
+        lives: livesDisplay,
         rachaActiva: _rachaActivaMax,
         onContinue: partialProgress != null ? () {
           Navigator.pop(context);
@@ -2280,6 +2385,8 @@ Widget build(BuildContext context) {
   void _irAlQuiz(BuildContext context, Map<String, dynamic> materia, bool modoTest) async {
     // Check if there's partial progress for this subject and mode
     final partialProgress = await StorageService.getPartialProgress(materia['nombre'].toString());
+    
+    if (!context.mounted) return;
     
     // If there's partial progress that matches the subject and mode, restore it directly
     if (partialProgress != null && 
@@ -2337,13 +2444,13 @@ Widget build(BuildContext context) {
   Future<void> _irAlStreakMode(BuildContext context, Map<String, dynamic> materia) async {
     // Check if user has global lives
     final globalStreak = await StorageService.getGlobalStreakData();
-    final lives = globalStreak.lives;
+    final availableLives = globalStreak.availableLives;
     
-    if (lives <= 0) {
+    if (availableLives <= 0) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("No tienes vidas disponibles. Espera a que se recarguen a las 00:00."),
+            content: Text("No tienes vidas disponibles. Algunas están recargando. Revisa el tiempo restante en el selector de modo."),
             backgroundColor: Colors.red,
           ),
         );
@@ -2516,8 +2623,8 @@ class _QuizPageState extends State<QuizPage> {
     return Colors.red;
   }
   void _mostrarDialogoReporte(BuildContext context, int indexPregunta, String textoPregunta) {
-    final TextEditingController _reporteController = TextEditingController();
-    bool _enviandoReporte = false;
+    final TextEditingController reporteController = TextEditingController();
+    bool enviandoReporte = false;
     bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
@@ -2535,7 +2642,7 @@ class _QuizPageState extends State<QuizPage> {
                   Text("Pregunta ${indexPregunta + 1}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 10),
                   TextField(
-                    controller: _reporteController,
+                    controller: reporteController,
                     style: TextStyle(
                       color: esModoOscuro ? Colors.white : Colors.black87,
                     ),
@@ -2562,10 +2669,10 @@ class _QuizPageState extends State<QuizPage> {
                     backgroundColor: Colors.red.shade400,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: _enviandoReporte ? null : () async {
-                    if (_reporteController.text.trim().isEmpty) return;
+                  onPressed: enviandoReporte ? null : () async {
+                    if (reporteController.text.trim().isEmpty) return;
                     
-                    setStateDialog(() => _enviandoReporte = true);
+                    setStateDialog(() => enviandoReporte = true);
                     
                     try {
                       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -2577,7 +2684,7 @@ class _QuizPageState extends State<QuizPage> {
                         'modo_test': widget.isTestMode,
                         'pregunta_index': indexPregunta,
                         'pregunta_texto': textoPregunta,
-                        'mensaje': _reporteController.text.trim(),
+                        'mensaje': reporteController.text.trim(),
                         'fecha': FieldValue.serverTimestamp(),
                       });
 
@@ -2592,11 +2699,11 @@ class _QuizPageState extends State<QuizPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Error al reportar: $e"), backgroundColor: Colors.red),
                         );
-                        setStateDialog(() => _enviandoReporte = false);
+                        setStateDialog(() => enviandoReporte = false);
                       }
                     }
                   },
-                  child: _enviandoReporte 
+                  child: enviandoReporte 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Text("Enviar Reporte"),
                 ),
@@ -3659,7 +3766,7 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              value: _tipoSeleccionado,
+              initialValue: _tipoSeleccionado,
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
@@ -3685,7 +3792,7 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              value: _materiaSeleccionada,
+              initialValue: _materiaSeleccionada,
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
@@ -3847,7 +3954,7 @@ class PantallaOnboardingStreak extends StatelessWidget {
               _buildFeatureCard(
                 icon: Icons.favorite,
                 title: "Sistema de Vidas",
-                description: "Tienes 3 vidas que se recargan a las 00:00. Si fallas un examen, pierdes una vida. Sin vidas, no puedes hacer más exámenes de racha.",
+                description: "Tienes 3 vidas. Cada vida se recarga en 8 horas cuando la pierdes. Si fallas un examen (<60%), pierdes una vida. Sin vidas, no puedes hacer más exámenes de racha.",
                 esModoOscuro: esModoOscuro,
                 titleFontSize: cardTitleFontSize,
                 descFontSize: cardDescFontSize,
@@ -4658,7 +4765,6 @@ class PantallaHistorialExamenes extends StatefulWidget {
 
 class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
   List<ExamResult> _examHistory = [];
-  Map<String, int> _mistakeFrequency = {};
   Map<String, Map<String, int>> _subjectStats = {};
   bool _loading = true;
 
@@ -4670,7 +4776,6 @@ class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
 
   Future<void> _loadExamHistory() async {
     final history = await StorageService.getExamHistory();
-    final mistakes = await StorageService.getMistakeFrequency();
     
     // Calculate subject-level statistics
     Map<String, Map<String, int>> subjectStats = {};
@@ -4685,7 +4790,6 @@ class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
     if (mounted) {
       setState(() {
         _examHistory = history;
-        _mistakeFrequency = mistakes;
         _subjectStats = subjectStats;
         _loading = false;
       });
@@ -5144,8 +5248,8 @@ class PantallaAcercaDe extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _buildStreakFeature(esModoOscuro, '1 examen diario', 'Completa 1 examen con ≥60% de aciertos por día'),
-            _buildStreakFeature(esModoOscuro, '3 vidas', 'Tienes 3 vidas que se recargan a las 00:00am'),
-            _buildStreakFeature(esModoOscuro, 'Pérdida de vida', 'Si fallas un examen (<60%), pierdes una vida'),
+            _buildStreakFeature(esModoOscuro, '3 vidas con recarga individual', 'Tienes 3 vidas. Cada vida se recarga en 8 horas cuando la pierdes'),
+            _buildStreakFeature(esModoOscuro, 'Pérdida de vida', 'Si fallas un examen (<60%), pierdes una vida. Puedes ver el tiempo de recarga de cada vida'),
             _buildStreakFeature(esModoOscuro, 'Preguntas aleatorias', 'Cada examen presenta preguntas diferentes para mantener el desafío'),
             _buildStreakFeature(esModoOscuro, 'Tiempo limitado', '2 minutos por pregunta para simular condiciones reales de examen'),
             
@@ -5376,28 +5480,7 @@ class PantallaAcercaDe extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(bool esModoOscuro, String emoji, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              description,
-              style: TextStyle(
-                fontSize: 13,
-                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildStep(bool esModoOscuro, String number, String description) {
     return Padding(
