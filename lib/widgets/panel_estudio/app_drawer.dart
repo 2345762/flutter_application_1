@@ -15,6 +15,7 @@ class AppDrawer extends StatelessWidget {
   final VoidCallback onOpenInstructions;
   final VoidCallback onOpenSuggestions;
   final VoidCallback onOpenHistory;
+  final VoidCallback onOpenAbout;
   final VoidCallback onLogout;
 
   const AppDrawer({
@@ -29,6 +30,7 @@ class AppDrawer extends StatelessWidget {
     required this.onOpenInstructions,
     required this.onOpenSuggestions,
     required this.onOpenHistory,
+    required this.onOpenAbout,
     required this.onLogout,
   });
 
@@ -269,13 +271,7 @@ class AppDrawer extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      onTap: () {
-                        showAboutDialog(
-                          context: context,
-                          applicationName: 'EOV APP',
-                          applicationVersion: '1.0.0',
-                        );
-                      },
+                      onTap: () => _selectAndClose(context, onOpenAbout),
                     ),
                   ),
                 ],
