@@ -5058,7 +5058,7 @@ class PantallaAcercaDe extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Piloto de Aviación - Quiz App',
+                    ' EOV  -  Quiz App',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -5144,7 +5144,7 @@ class PantallaAcercaDe extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _buildStreakFeature(esModoOscuro, '1 examen diario', 'Completa 1 examen con ≥60% de aciertos por día'),
-            _buildStreakFeature(esModoOscuro, '3 vidas', 'Tienes 3 vidas que se recargan a las 00:00 (hora chilena)'),
+            _buildStreakFeature(esModoOscuro, '3 vidas', 'Tienes 3 vidas que se recargan a las 00:00am'),
             _buildStreakFeature(esModoOscuro, 'Pérdida de vida', 'Si fallas un examen (<60%), pierdes una vida'),
             _buildStreakFeature(esModoOscuro, 'Preguntas aleatorias', 'Cada examen presenta preguntas diferentes para mantener el desafío'),
             _buildStreakFeature(esModoOscuro, 'Tiempo limitado', '2 minutos por pregunta para simular condiciones reales de examen'),
@@ -5161,25 +5161,13 @@ class PantallaAcercaDe extends StatelessWidget {
             _buildProgressFeature(esModoOscuro, 'Progreso por materia', 'Cada materia guarda su propio progreso de estudio'),
             _buildProgressFeature(esModoOscuro, 'Indicadores visuales', 'Barras de progreso circulares en cada tarjeta de materia'),
             _buildProgressFeature(esModoOscuro, 'Continuar estudiando', 'Reanuda desde donde lo dejaste en cada materia'),
-            _buildProgressFeature(esModoOscuro, 'Sincronización Firebase', 'Tu progreso se guarda en la nube y se recupera al iniciar sesión'),
+            _buildProgressFeature(esModoOscuro, 'Sincronización en múltplies dispositivos', 'Tu progreso se guarda en la nube y se recupera al iniciar sesión'),
             _buildProgressFeature(esModoOscuro, 'Historial de exámenes', 'Registro completo de todos tus exámenes realizados'),
             
             const SizedBox(height: 24),
             
             // Features
-            _buildSection(
-              esModoOscuro,
-              '✨ Características Adicionales',
-              'Funcionalidades diseñadas para mejorar tu experiencia de estudio:',
-            ),
-            const SizedBox(height: 12),
-            _buildFeatureItem(esModoOscuro, '🌙 Modo oscuro/claro', 'Interfaz adaptable a tus preferencias visuales'),
-            _buildFeatureItem(esModoOscuro, '📱 Diseño responsivo', 'Optimizado para diferentes tamaños de pantalla'),
-            _buildFeatureItem(esModoOscuro, '💾 Guardado automático', 'Tu progreso se guarda automáticamente'),
-            _buildFeatureItem(esModoOscuro, '🔔 Notificaciones', 'Recordatorios para mantener tu racha activa'),
-            _buildFeatureItem(esModoOscuro, '📈 Estadísticas detalladas', 'Análisis de tu rendimiento por materia y modo'),
             
-            const SizedBox(height: 24),
             
             // How to Use
             _buildSection(
