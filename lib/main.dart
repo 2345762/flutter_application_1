@@ -42,6 +42,7 @@ import 'widgets/panel_estudio/app_drawer.dart';
 // =============================================================
 
 /// Get current date in Chilean timezone (America/Santiago)
+/// hellomynameisdaniel
 DateTime _getChileanDate() {
   final now = tz.TZDateTime.now(tz.local);
   return DateTime(now.year, now.month, now.day);
