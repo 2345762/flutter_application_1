@@ -3030,25 +3030,27 @@ class _QuizPageState extends State<QuizPage> {
           const SizedBox(height: 20),
           
           // Carga de imágenes corregida con su ZoomableImage
-          if (pregunta.containsKey('imagenes'))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                children: (pregunta['imagenes'] as List<String>).map((ruta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 15.0),
-                    child: ZoomableImage(
-                      imagePath: ruta,
-                      onZoomChanged: (estaHabilitado) {
-                        setState(() {
-                          _scrollBloqueado = estaHabilitado;
-                        });
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
+          // ✅ Carga de imágenes corregida
+        if (pregunta.containsKey('imagenes') && pregunta['imagenes'] != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Column(
+              // Usamos List<String>.from(...) para convertir dinámicamente cada elemento
+              children: List<String>.from(pregunta['imagenes'] as List).map((ruta) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 15.0),
+                  child: ZoomableImage(
+                    imagePath: ruta,
+                    onZoomChanged: (estaHabilitado) {
+                      setState(() {
+                        _scrollBloqueado = estaHabilitado;
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
             ),
+          ),
           
           const SizedBox(height: 20),
           
