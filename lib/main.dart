@@ -64,6 +64,13 @@ DateTime _toChileanTime(DateTime date) {
   return tz.TZDateTime.from(date, tz.local);
 }
 
+/// Convert a DateTime to Chilean timezone and return as regular DateTime
+DateTime _toChileanTimeAsDateTime(DateTime date) {
+  final chileanTime = _toChileanTime(date);
+  return DateTime(chileanTime.year, chileanTime.month, chileanTime.day, 
+                 chileanTime.hour, chileanTime.minute, chileanTime.second);
+}
+
 /// Format date in Chilean timezone (DD/MM/YYYY HH:MM)
 String _formatDate(DateTime date) {
   final chileanDate = _toChileanTime(date);
@@ -81,6 +88,7 @@ class StreakData {
   final int maxStreakDays; // All-time maximum streak
   final int dailyExamsPassed; // Exams passed today
   final DateTime? lastDailyResetDate; // When daily count was last reset
+  final DateTime? lastPassedExamDate; // When the last exam was passed (for daily reset logic)
 
   StreakData({
     required this.streakDays,
@@ -89,6 +97,7 @@ class StreakData {
     this.maxStreakDays = 0,
     this.dailyExamsPassed = 0,
     this.lastDailyResetDate,
+    this.lastPassedExamDate,
   });
 
   Map<String, dynamic> toJson() {
@@ -99,6 +108,7 @@ class StreakData {
       'maxStreakDays': maxStreakDays,
       'dailyExamsPassed': dailyExamsPassed,
       'lastDailyResetDate': lastDailyResetDate?.toIso8601String(),
+      'lastPassedExamDate': lastPassedExamDate?.toIso8601String(),
     };
   }
 
@@ -106,13 +116,16 @@ class StreakData {
     return StreakData(
       streakDays: json['streakDays'] as int? ?? 0,
       lastExamDate: json['lastExamDate'] != null 
-          ? DateTime.parse(json['lastExamDate'] as String) 
+          ? _toChileanTimeAsDateTime(DateTime.parse(json['lastExamDate'] as String)) 
           : DateTime.now(),
       totalExams: json['totalExams'] as int? ?? 0,
       maxStreakDays: json['maxStreakDays'] as int? ?? 0,
       dailyExamsPassed: json['dailyExamsPassed'] as int? ?? 0,
       lastDailyResetDate: json['lastDailyResetDate'] != null 
-          ? DateTime.parse(json['lastDailyResetDate'] as String) 
+          ? _toChileanTimeAsDateTime(DateTime.parse(json['lastDailyResetDate'] as String)) 
+          : null,
+      lastPassedExamDate: json['lastPassedExamDate'] != null 
+          ? _toChileanTimeAsDateTime(DateTime.parse(json['lastPassedExamDate'] as String)) 
           : null,
     );
   }
@@ -138,7 +151,7 @@ class LifeData {
     return LifeData(
       isAvailable: json['isAvailable'] as bool? ?? true,
       rechargeTime: json['rechargeTime'] != null 
-          ? DateTime.parse(json['rechargeTime'] as String) 
+          ? _toChileanTimeAsDateTime(DateTime.parse(json['rechargeTime'] as String)) 
           : null,
     );
   }
@@ -176,6 +189,20 @@ class GlobalStreakData {
     // If no lives data or empty, create default 3 lives
     if (lives.isEmpty) {
       return GlobalStreakData.defaultLives();
+    }
+    
+    // Safety check: ensure we never have more than 3 lives
+    if (lives.length > 3) {
+      return GlobalStreakData(lives: lives.sublist(0, 3));
+    }
+    
+    // If we have fewer than 3 lives, fill with available lives
+    if (lives.length < 3) {
+      final filledLives = List<LifeData>.from(lives);
+      while (filledLives.length < 3) {
+        filledLives.add(LifeData(isAvailable: true));
+      }
+      return GlobalStreakData(lives: filledLives);
     }
     
     return GlobalStreakData(lives: lives);
@@ -229,7 +256,7 @@ class ExamResult {
     return ExamResult(
       id: json['id'] as String,
       subject: json['subject'] as String,
-      date: DateTime.parse(json['date'] as String),
+      date: _toChileanTimeAsDateTime(DateTime.parse(json['date'] as String)),
       score: json['score'] as int,
       totalQuestions: json['totalQuestions'] as int,
       mode: json['mode'] as String,
@@ -253,6 +280,7 @@ class PartialExamProgress {
   final int timeSpentSeconds;
   final List<Map<String, dynamic>>? questionPool; // Store the actual questions to restore the quiz
   final int currentQuestionIndex; // Track which question the user was on
+  final bool reachedFiftyPercent; // Flag for anti-cheat: reached 50% completion in streak mode
 
   PartialExamProgress({
     required this.id,
@@ -265,6 +293,7 @@ class PartialExamProgress {
     required this.timeSpentSeconds,
     this.questionPool, // Optional: can be null if we just want to show progress
     this.currentQuestionIndex = 0, // Default to first question
+    this.reachedFiftyPercent = false, // Default to false
   });
 
   double get completionPercentage => totalQuestions > 0 ? answeredQuestions / totalQuestions : 0.0;
@@ -281,6 +310,7 @@ class PartialExamProgress {
       'timeSpentSeconds': timeSpentSeconds,
       'questionPool': questionPool, // Include question pool for restoring
       'currentQuestionIndex': currentQuestionIndex,
+      'reachedFiftyPercent': reachedFiftyPercent,
     };
   }
 
@@ -288,7 +318,7 @@ class PartialExamProgress {
     return PartialExamProgress(
       id: json['id'] as String,
       subject: json['subject'] as String,
-      date: DateTime.parse(json['date'] as String),
+      date: _toChileanTimeAsDateTime(DateTime.parse(json['date'] as String)),
       totalQuestions: json['totalQuestions'] as int,
       answeredQuestions: json['answeredQuestions'] as int,
       mode: json['mode'] as String,
@@ -298,6 +328,7 @@ class PartialExamProgress {
           ? List<Map<String, dynamic>>.from(json['questionPool'] as List)
           : null,
       currentQuestionIndex: json['currentQuestionIndex'] as int? ?? 0,
+      reachedFiftyPercent: json['reachedFiftyPercent'] as bool? ?? false,
     );
   }
 }
@@ -309,6 +340,170 @@ class PartialExamProgress {
 class StorageService {
   static const String _streakKey = 'streak_data';
   static const String _globalStreakKey = 'global_streak_data';
+
+  /// Firebase sync with retry mechanism
+  /// Attempts to sync data to Firebase with automatic retries on failure
+  static Future<bool> _syncToFirebaseWithRetry(
+    String userName,
+    Map<String, dynamic> userData, {
+    int maxRetries = 3,
+    Duration retryDelay = const Duration(seconds: 2),
+  }) async {
+    int attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName)
+            .set(userData, SetOptions(merge: true));
+        return true; // Success
+      } catch (e) {
+        attempt++;
+        print("Firebase sync attempt $attempt failed: $e");
+        
+        if (attempt < maxRetries) {
+          await Future.delayed(retryDelay);
+        } else {
+          print("Firebase sync failed after $maxRetries attempts");
+          return false; // All retries failed
+        }
+      }
+    }
+    
+    return false; // Should not reach here
+  }
+
+  /// Batch update Firebase with all user data in a single call
+  /// Ensures data consistency by updating all related data together
+  static Future<bool> _batchUpdateFirebase(String userName) async {
+    try {
+      SharedPreferences prefsUser = await SharedPreferences.getInstance();
+      String userNameCheck = prefsUser.getString('userName') ?? "Unknown";
+      if (userName != userNameCheck) {
+        print("Username mismatch in batch update");
+        return false;
+      }
+      
+      // Get all current data
+      final streakData = await getStreakData();
+      final globalStreak = await getGlobalStreakData();
+      final examHistory = await getExamHistory();
+      final partialProgress = await getAllPartialProgress();
+      
+      // Get existing Firebase data
+      var userDoc = await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName)
+          .get();
+      
+      Map<String, dynamic> userData = {};
+      if (userDoc.exists) {
+        userData = userDoc.data() as Map<String, dynamic>;
+      }
+      
+      // Batch update all data
+      if (streakData != null) {
+        userData['globalStreak'] = streakData.toJson();
+        userData['current_streak'] = streakData.streakDays;
+        userData['max_streak'] = streakData.maxStreakDays;
+      }
+      
+      userData['globalLives'] = globalStreak.availableLives;
+      userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
+      
+      userData['examHistory'] = examHistory.map((exam) => exam.toJson()).toList();
+      userData['totalExams'] = examHistory.length;
+      
+      Map<String, dynamic> studyProgress = {};
+      for (var entry in partialProgress.entries) {
+        studyProgress[entry.key] = entry.value.toJson();
+      }
+      userData['studyProgress'] = studyProgress;
+      
+      userData['lastUpdated'] = FieldValue.serverTimestamp();
+      
+      return await _syncToFirebaseWithRetry(userName, userData);
+    } catch (e) {
+      print("Error in batch Firebase update: $e");
+      return false;
+    }
+  }
+
+  /// Validate Firebase data before applying it locally
+  /// Returns true if data is valid, false otherwise
+  static bool _validateFirebaseData(Map<String, dynamic> userData) {
+    try {
+      // Validate streak data if present
+      if (userData.containsKey('globalStreak')) {
+        final streakData = userData['globalStreak'] as Map<String, dynamic>;
+        
+        // Check required fields
+        if (!streakData.containsKey('streakDays') || 
+            !streakData.containsKey('totalExams') ||
+            !streakData.containsKey('maxStreakDays')) {
+          print("Invalid streak data: missing required fields");
+          return false;
+        }
+        
+        // Validate data types
+        if (streakData['streakDays'] is! int || 
+            streakData['totalExams'] is! int ||
+            streakData['maxStreakDays'] is! int) {
+          print("Invalid streak data: wrong data types");
+          return false;
+        }
+        
+        // Validate ranges
+        if (streakData['streakDays'] < 0 || 
+            streakData['totalExams'] < 0 ||
+            streakData['maxStreakDays'] < 0) {
+          print("Invalid streak data: negative values");
+          return false;
+        }
+      }
+      
+      // Validate lives data if present
+      if (userData.containsKey('livesData')) {
+        final livesData = userData['livesData'] as List<dynamic>;
+        
+        if (livesData.length != 3) {
+          print("Invalid lives data: should have exactly 3 lives, found ${livesData.length}");
+          return false;
+        }
+        
+        for (var lifeJson in livesData) {
+          final life = lifeJson as Map<String, dynamic>;
+          if (!life.containsKey('isAvailable') || life['isAvailable'] is! bool) {
+            print("Invalid life data: missing or invalid isAvailable field");
+            return false;
+          }
+        }
+      }
+      
+      // Validate exam history if present
+      if (userData.containsKey('examHistory')) {
+        final examHistory = userData['examHistory'] as List<dynamic>;
+        
+        for (var examJson in examHistory) {
+          final exam = examJson as Map<String, dynamic>;
+          if (!exam.containsKey('id') || 
+              !exam.containsKey('subject') ||
+              !exam.containsKey('score') ||
+              !exam.containsKey('date')) {
+            print("Invalid exam data: missing required fields");
+            return false;
+          }
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      print("Error validating Firebase data: $e");
+      return false;
+    }
+  }
+
   static const String _examHistoryKey = 'exam_history';
   static const String _streakOnboardingShown = 'streak_onboarding_shown';
   static const String _partialProgressKey = 'partial_exam_progress';
@@ -350,6 +545,78 @@ class StorageService {
     return streakData?.totalExams ?? 0;
   }
 
+  /// Check for streak reset based on date change (should be called on app startup)
+  /// Resets streak to 0 if 24+ hours have passed since last passed exam (skipped 1 or more days)
+  static Future<void> checkAndResetStreakIfNeeded() async {
+    try {
+      final currentStreak = await getStreakData();
+      if (currentStreak == null || currentStreak.lastPassedExamDate == null) {
+        return; // No streak data or no passed exams yet
+      }
+
+      final today = _getChileanDate();
+      
+      // Reset streak if 1 or more days have passed since last passed exam
+      final lastPassedDate = DateTime(currentStreak.lastPassedExamDate!.year, currentStreak.lastPassedExamDate!.month, currentStreak.lastPassedExamDate!.day);
+      final difference = today.difference(lastPassedDate).inDays;
+      
+      if (difference >= 1) {
+        // User skipped 1 or more days - reset streak to 0
+        final resetStreak = StreakData(
+          streakDays: 0,
+          lastExamDate: currentStreak.lastExamDate,
+          totalExams: currentStreak.totalExams,
+          maxStreakDays: currentStreak.maxStreakDays,
+          dailyExamsPassed: 0,
+          lastDailyResetDate: today,
+          lastPassedExamDate: null,
+        );
+        
+        await saveStreakData(resetStreak);
+        print("Streak reset to 0 (skipped 1 or more days)");
+        
+        // Sync to Firebase
+        try {
+          SharedPreferences prefsUser = await SharedPreferences.getInstance();
+          String userName = prefsUser.getString('userName') ?? "Unknown";
+          await _batchUpdateFirebase(userName);
+        } catch (e) {
+          print("Error syncing streak reset to Firebase: $e");
+        }
+      }
+    } catch (e) {
+      print("Error checking streak reset: $e");
+    }
+  }
+
+  /// Check and recharge lives based on elapsed time (should be called on app startup)
+  /// Recharges lives that have completed their 8-hour recharge period
+  static Future<void> checkAndRechargeLivesIfNeeded() async {
+    try {
+      final globalStreak = await getGlobalStreakData();
+      final rechargedLives = await _rechargeGlobalLivesIfNeeded(globalStreak);
+      
+      // Check if any lives were actually recharged by comparing available counts
+      bool livesChanged = rechargedLives.availableLives != globalStreak.availableLives;
+      
+      if (livesChanged) {
+        await saveGlobalStreakData(rechargedLives);
+        print("Lives recharged successfully. Available lives: ${rechargedLives.availableLives}/3");
+        
+        // Sync to Firebase
+        try {
+          SharedPreferences prefsUser = await SharedPreferences.getInstance();
+          String userName = prefsUser.getString('userName') ?? "Unknown";
+          await _batchUpdateFirebase(userName);
+        } catch (e) {
+          print("Error syncing recharged lives to Firebase: $e");
+        }
+      }
+    } catch (e) {
+      print("Error checking life recharge: $e");
+    }
+  }
+
   static Future<void> updateStreakAfterExam(String subject, bool passed, double scorePercentage) async {
     final currentStreak = await getStreakData();
     final globalStreak = await getGlobalStreakData();
@@ -367,7 +634,28 @@ class StorageService {
       maxStreakDays: 0,
       dailyExamsPassed: 0,
       lastDailyResetDate: today,
+      lastPassedExamDate: null,
     );
+
+    // Check if it's been 1 or more days since last passed exam (streak reset condition)
+    // Reset occurs if user skipped 1 or more days
+    if (workingStreak.lastPassedExamDate != null) {
+      final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
+      final difference = today.difference(lastPassedDate).inDays;
+      
+      if (difference >= 1) {
+        // User skipped 1 or more days - reset streak to 0
+        workingStreak = StreakData(
+          streakDays: 0,
+          lastExamDate: workingStreak.lastExamDate,
+          totalExams: workingStreak.totalExams,
+          maxStreakDays: workingStreak.maxStreakDays,
+          dailyExamsPassed: 0,
+          lastDailyResetDate: today,
+          lastPassedExamDate: null,
+        );
+      }
+    }
 
     // Reset daily count if it's a new day (Chilean timezone)
     if (workingStreak.lastDailyResetDate == null || 
@@ -379,14 +667,16 @@ class StorageService {
         maxStreakDays: workingStreak.maxStreakDays,
         dailyExamsPassed: 0,
         lastDailyResetDate: today,
+        lastPassedExamDate: workingStreak.lastPassedExamDate,
       );
     }
 
-    // Only count exam if passed (60% threshold)
-    final passedThreshold = scorePercentage >= 0.6;
+    // Only count exam if passed (70% threshold)
+    final passedThreshold = scorePercentage >= 0.7;
     int newDailyExamsPassed = workingStreak.dailyExamsPassed;
     int newStreakDays = workingStreak.streakDays;
     int newMaxStreak = workingStreak.maxStreakDays;
+    DateTime? newLastPassedExamDate = workingStreak.lastPassedExamDate;
     
     // Deduct a life if failed the exam
     List<LifeData> updatedLives = List.from(globalWithRechargedLives.lives);
@@ -394,7 +684,7 @@ class StorageService {
       // Find first available life and mark it as unavailable with 8-hour recharge
       for (int i = 0; i < updatedLives.length; i++) {
         if (updatedLives[i].isAvailable) {
-          final rechargeTime = now.add(const Duration(hours: 8));
+          final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
           updatedLives[i] = LifeData(
             isAvailable: false,
             rechargeTime: rechargeTime,
@@ -406,34 +696,41 @@ class StorageService {
 
     if (passedThreshold) {
       newDailyExamsPassed++;
+      newLastPassedExamDate = _toChileanTimeAsDateTime(now);
       
-      // Check if we completed 1 exam today to add streak day
-      if (newDailyExamsPassed >= 1) {
-        newStreakDays++;
-        newDailyExamsPassed = 0; // Reset for next day
+      // Increment streak if this exam is on a different day than the last passed exam
+      // This allows building consecutive day streaks (Day 1 → Day 2 → Day 3, etc.)
+      if (workingStreak.lastPassedExamDate != null) {
+        final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
+        final currentDate = DateTime(now.year, now.month, now.day);
         
-        // Update max streak if needed (this captures the user's best streak)
-        if (newStreakDays > newMaxStreak) {
-          newMaxStreak = newStreakDays;
+        if (currentDate.isAfter(lastPassedDate)) {
+          // Passed exam on a new day - increment streak
+          newStreakDays++;
+          
+          // Update max streak if needed
+          if (newStreakDays > newMaxStreak) {
+            newMaxStreak = newStreakDays;
+          }
+        }
+        // If same day, streak doesn't increment (already counted for this day)
+      } else {
+        // First passed exam ever (or streak was reset) - start streak at 1
+        newStreakDays = 1;
+        if (newMaxStreak == 0) {
+          newMaxStreak = 1;
         }
       }
     }
 
-    // Check if streak should be lost (no exams in 24h window)
-    // Only reset current streak, NOT max streak
-    final hoursSinceLastExam = now.difference(workingStreak.lastExamDate).inHours;
-    if (hoursSinceLastExam >= 24 && workingStreak.streakDays > 0) {
-      newStreakDays = 0;
-      // Note: newMaxStreak is NOT reset here, preserving the user's best streak
-    }
-
     final updatedStreak = StreakData(
       streakDays: newStreakDays,
-      lastExamDate: now,
+      lastExamDate: _toChileanTimeAsDateTime(now),
       totalExams: workingStreak.totalExams + (passedThreshold ? 1 : 0), // Only count passed exams
       maxStreakDays: newMaxStreak,
       dailyExamsPassed: newDailyExamsPassed,
       lastDailyResetDate: workingStreak.lastDailyResetDate,
+      lastPassedExamDate: newLastPassedExamDate,
     );
 
     final updatedGlobalStreak = GlobalStreakData(
@@ -442,19 +739,36 @@ class StorageService {
 
     await saveStreakData(updatedStreak);
     await saveGlobalStreakData(updatedGlobalStreak);
+    
+    // Immediately sync to Firebase to prevent data loss on refresh
+    try {
+      SharedPreferences prefsUser = await SharedPreferences.getInstance();
+      String userName = prefsUser.getString('userName') ?? "Unknown";
+      
+      // Use batch update for consistency
+      await _batchUpdateFirebase(userName);
+    } catch (e) {
+      print("Error syncing streak update to Firebase: $e");
+    }
   }
 
   static Future<GlobalStreakData> _rechargeGlobalLivesIfNeeded(GlobalStreakData globalStreak) async {
     final now = tz.TZDateTime.now(tz.local);
     final List<LifeData> updatedLives = [];
     
-    for (final life in globalStreak.lives) {
+    // Ensure we always have exactly 3 lives total
+    final livesToProcess = globalStreak.lives.length >= 3 
+        ? globalStreak.lives.sublist(0, 3) 
+        : [...globalStreak.lives, ...List.generate(3 - globalStreak.lives.length, (_) => LifeData(isAvailable: true))];
+    
+    for (final life in livesToProcess) {
       if (life.isAvailable) {
         // Life is already available, keep it as is
         updatedLives.add(life);
       } else if (life.rechargeTime != null) {
-        // Check if recharge time has passed
-        if (now.isAfter(life.rechargeTime!)) {
+        // Check if recharge time has passed (8-hour recharge in Chilean time)
+        final nowAsDateTime = _toChileanTimeAsDateTime(now);
+        if (nowAsDateTime.isAfter(life.rechargeTime!) || nowAsDateTime.isAtSameMomentAs(life.rechargeTime!)) {
           // Recharge this life
           updatedLives.add(LifeData(isAvailable: true));
         } else {
@@ -467,6 +781,11 @@ class StorageService {
       }
     }
     
+    // Safety check: ensure we never have more than 3 lives
+    if (updatedLives.length > 3) {
+      updatedLives.removeRange(3, updatedLives.length);
+    }
+    
     return GlobalStreakData(lives: updatedLives);
   }
 
@@ -475,7 +794,11 @@ class StorageService {
     final examHistoryList = prefs.getString(_examHistoryKey) ?? '[]';
     final List<dynamic> history = json.decode(examHistoryList);
     
-    history.add(result.toJson());
+    // Check for duplicate exam IDs to prevent duplicates
+    final hasDuplicate = history.any((exam) => exam['id'] == result.id);
+    if (!hasDuplicate) {
+      history.add(result.toJson());
+    }
     
     // Keep only last 50 exams to avoid storage issues
     if (history.length > 50) {
@@ -500,12 +823,16 @@ class StorageService {
         userData = userDoc.data() as Map<String, dynamic>;
       }
       
-      // Update exam count
-      userData['totalExams'] = (userData['totalExams'] as int? ?? 0) + 1;
-      
       // Save exam history to Firebase
       List<dynamic> firebaseHistory = userData['examHistory'] as List<dynamic>? ?? [];
-      firebaseHistory.add(result.toJson());
+      
+      // Check for duplicate exam IDs to prevent duplicates in Firebase
+      final hasFirebaseDuplicate = firebaseHistory.any((exam) => exam['id'] == result.id);
+      if (!hasFirebaseDuplicate) {
+        firebaseHistory.add(result.toJson());
+        // Only increment exam count if it's not a duplicate
+        userData['totalExams'] = (userData['totalExams'] as int? ?? 0) + 1;
+      }
       
       // Keep only last 50 exams in Firebase as well
       if (firebaseHistory.length > 50) {
@@ -514,40 +841,24 @@ class StorageService {
       
       userData['examHistory'] = firebaseHistory;
       
-      // Update streak info if it's a streak exam
-      if (result.mode == 'streak') {
-        Map<String, dynamic> streaks = userData['streaks'] as Map<String, dynamic>? ?? {};
-        String subject = result.subject;
-        
-        if (!streaks.containsKey(subject)) {
-          streaks[subject] = {
-            'currentStreak': 0,
-            'maxStreak': 0,
-            'totalPassed': 0,
-          };
-        }
-        
-        // Update global streak data
-        final streakData = await getStreakData();
-        if (streakData != null) {
-          userData['globalStreak'] = streakData.toJson();
-        }
-        
-        // Update global lives
-        final globalStreak = await getGlobalStreakData();
-        userData['globalLives'] = globalStreak.availableLives;
-        userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
-      } else {
-        // If no subjects have been started yet, initialize with empty structure
-        userData['subjects'] = {};
+      // Sync global streak data for any exam mode to ensure Firebase consistency
+      final streakData = await getStreakData();
+      if (streakData != null) {
+        userData['globalStreak'] = streakData.toJson();
+        // Also store explicit current_streak and max_streak for direct access
+        userData['current_streak'] = streakData.streakDays;
+        userData['max_streak'] = streakData.maxStreakDays;
       }
+      
+      // Also sync global lives for any exam mode
+      final globalStreak = await getGlobalStreakData();
+      userData['globalLives'] = globalStreak.availableLives;
+      userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
       
       userData['lastUpdated'] = FieldValue.serverTimestamp();
       
-      await FirebaseFirestore.instance
-          .collection('user_summaries')
-          .doc(userName)
-          .set(userData, SetOptions(merge: true));
+      // Use batch update for consistency
+      await _batchUpdateFirebase(userName);
     } catch (e) {
       // Firebase save failure shouldn't block local storage
       print("Error saving user summary to Firebase: $e");
@@ -568,6 +879,12 @@ class StorageService {
       
       if (userDoc.exists) {
         final userData = userDoc.data() as Map<String, dynamic>;
+        
+        // Validate Firebase data before applying
+        if (!_validateFirebaseData(userData)) {
+          print("Invalid Firebase data detected, skipping load");
+          return;
+        }
         
         // Load exam history from Firebase
         if (userData.containsKey('examHistory')) {
@@ -593,7 +910,7 @@ class StorageService {
           );
           // Fill remaining lives as unavailable if count < 3
           while (lives.length < 3) {
-            lives.add(LifeData(isAvailable: false, rechargeTime: DateTime.now().add(const Duration(hours: 8))));
+            lives.add(LifeData(isAvailable: false, rechargeTime: _toChileanTimeAsDateTime(DateTime.now().add(const Duration(hours: 8)))));
           }
           
           final globalStreak = GlobalStreakData(lives: lives);
@@ -601,10 +918,35 @@ class StorageService {
         }
         
         // Load global streak data
+        StreakData? loadedStreakData;
         if (userData.containsKey('globalStreak')) {
           final streakInfo = userData['globalStreak'] as Map<String, dynamic>;
-          final streakData = StreakData.fromJson(streakInfo);
-          await saveStreakData(streakData);
+          loadedStreakData = StreakData.fromJson(streakInfo);
+          await saveStreakData(loadedStreakData);
+        }
+        
+        // Also load explicit current_streak and max_streak if available (for direct access)
+        if (userData.containsKey('current_streak') || userData.containsKey('max_streak')) {
+          final currentStreak = userData['current_streak'] as int? ?? 0;
+          final maxStreak = userData['max_streak'] as int? ?? 0;
+          
+          // Use the loaded streak data or get existing data
+          final existingStreak = loadedStreakData ?? await getStreakData();
+          if (existingStreak != null) {
+            // Only use Firebase explicit values if they're different from existing values
+            if (currentStreak != existingStreak.streakDays || maxStreak != existingStreak.maxStreakDays) {
+              final updatedStreak = StreakData(
+                streakDays: currentStreak > 0 ? currentStreak : existingStreak.streakDays,
+                lastExamDate: existingStreak.lastExamDate,
+                totalExams: existingStreak.totalExams,
+                maxStreakDays: maxStreak > 0 ? maxStreak : existingStreak.maxStreakDays,
+                dailyExamsPassed: existingStreak.dailyExamsPassed,
+                lastDailyResetDate: existingStreak.lastDailyResetDate,
+                lastPassedExamDate: existingStreak.lastPassedExamDate,
+              );
+              await saveStreakData(updatedStreak);
+            }
+          }
         }
         
         // Load study progress for each subject
@@ -689,12 +1031,19 @@ class StorageService {
       Map<String, dynamic> studyProgress = userData['studyProgress'] as Map<String, dynamic>? ?? {};
       studyProgress[progress.subject] = progress.toJson();
       userData['studyProgress'] = studyProgress;
+      
+      // Also sync current streak data
+      final streakData = await getStreakData();
+      if (streakData != null) {
+        userData['current_streak'] = streakData.streakDays;
+        userData['max_streak'] = streakData.maxStreakDays;
+        userData['globalStreak'] = streakData.toJson();
+      }
+      
       userData['lastUpdated'] = FieldValue.serverTimestamp();
       
-      await FirebaseFirestore.instance
-          .collection('user_summaries')
-          .doc(userName)
-          .set(userData, SetOptions(merge: true));
+      // Use batch update for consistency
+      await _batchUpdateFirebase(userName);
     } catch (e) {
       print("Error saving study progress to Firebase: $e");
     }
@@ -725,12 +1074,41 @@ class StorageService {
     return result;
   }
 
-  static Future<void> clearPartialProgress(String subject) async {
+  static Future<Map<String, PartialExamProgress>> getPracticeModeProgress() async {
     final prefs = await SharedPreferences.getInstance();
     final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
     final Map<String, dynamic> allProgress = json.decode(allProgressStr);
     
-    allProgress.remove(subject);
+    Map<String, PartialExamProgress> result = {};
+    for (var entry in allProgress.entries) {
+      final progress = PartialExamProgress.fromJson(entry.value as Map<String, dynamic>);
+      // Only include practice mode progress
+      if (progress.mode == 'practice') {
+        result[entry.key] = progress;
+      }
+    }
+    return result;
+  }
+
+  static Future<void> clearPartialProgress(String subject, {String? mode}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+    final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+    
+    // Only clear progress if mode matches or if no mode specified (backward compatibility)
+    if (mode != null) {
+      if (allProgress.containsKey(subject)) {
+        final progressData = allProgress[subject] as Map<String, dynamic>;
+        final progressMode = progressData['mode'] as String?;
+        // Only clear if the mode matches
+        if (progressMode == mode) {
+          allProgress.remove(subject);
+        }
+      }
+    } else {
+      // Backward compatibility: clear all progress for subject if no mode specified
+      allProgress.remove(subject);
+    }
     
     await prefs.setString(_partialProgressKey, json.encode(allProgress));
     
@@ -750,16 +1128,111 @@ class StorageService {
       }
       
       Map<String, dynamic> studyProgress = userData['studyProgress'] as Map<String, dynamic>? ?? {};
-      studyProgress.remove(subject);
+      
+      // Only remove from Firebase if mode matches or if no mode specified
+      if (mode != null) {
+        if (studyProgress.containsKey(subject)) {
+          final progressData = studyProgress[subject] as Map<String, dynamic>;
+          final progressMode = progressData['mode'] as String?;
+          if (progressMode == mode) {
+            studyProgress.remove(subject);
+          }
+        }
+      } else {
+        studyProgress.remove(subject);
+      }
+      
       userData['studyProgress'] = studyProgress;
+      
+      // Also sync current streak data
+      final streakData = await getStreakData();
+      if (streakData != null) {
+        userData['current_streak'] = streakData.streakDays;
+        userData['max_streak'] = streakData.maxStreakDays;
+        userData['globalStreak'] = streakData.toJson();
+      }
+      
       userData['lastUpdated'] = FieldValue.serverTimestamp();
       
-      await FirebaseFirestore.instance
-          .collection('user_summaries')
-          .doc(userName)
-          .set(userData, SetOptions(merge: true));
+      // Use batch update for consistency
+      await _batchUpdateFirebase(userName);
     } catch (e) {
       print("Error clearing study progress from Firebase: $e");
+    }
+  }
+
+  // Anti-cheat: Check for rage quit in Streak Mode
+  static Future<void> checkForRageQuit() async {
+    try {
+      final allProgress = await getAllPartialProgress();
+      
+      for (var entry in allProgress.entries) {
+        final progress = entry.value;
+        
+        // Only check streak mode progress
+        if (progress.mode == 'streak' && progress.reachedFiftyPercent) {
+          // User reached 50% but didn't finish - treat as failure
+          print("Rage quit detected in Streak Mode for ${progress.subject}. Deducting a life.");
+          
+          // Deduct a life
+          final globalStreak = await getGlobalStreakData();
+          final now = tz.TZDateTime.now(tz.local);
+          List<LifeData> updatedLives = List.from(globalStreak.lives);
+          
+          // Find first available life and mark it as unavailable
+          for (int i = 0; i < updatedLives.length; i++) {
+            if (updatedLives[i].isAvailable) {
+              final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
+              updatedLives[i] = LifeData(
+                isAvailable: false,
+                rechargeTime: rechargeTime,
+              );
+              break;
+            }
+          }
+          
+          final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
+          await saveGlobalStreakData(updatedGlobalStreak);
+          
+          // Clear the partial progress to prevent repeated deductions (only for streak mode)
+          await clearPartialProgress(progress.subject, mode: 'streak');
+          
+          // Sync to Firebase with explicit streak values
+          try {
+            SharedPreferences prefsUser = await SharedPreferences.getInstance();
+            String userName = prefsUser.getString('userName') ?? "Unknown";
+            
+            var userDoc = await FirebaseFirestore.instance
+                .collection('user_summaries')
+                .doc(userName)
+                .get();
+            
+            Map<String, dynamic> userData = {};
+            if (userDoc.exists) {
+              userData = userDoc.data() as Map<String, dynamic>;
+            }
+            
+            // Also sync current streak data
+            final streakData = await getStreakData();
+            if (streakData != null) {
+              userData['current_streak'] = streakData.streakDays;
+              userData['max_streak'] = streakData.maxStreakDays;
+              userData['globalStreak'] = streakData.toJson();
+            }
+            
+            userData['globalLives'] = updatedGlobalStreak.availableLives;
+            userData['livesData'] = updatedGlobalStreak.lives.map((life) => life.toJson()).toList();
+            userData['lastUpdated'] = FieldValue.serverTimestamp();
+            
+            // Use batch update for consistency
+            await _batchUpdateFirebase(userName);
+          } catch (e) {
+            print("Error syncing rage quit penalty to Firebase: $e");
+          }
+        }
+      }
+    } catch (e) {
+      print("Error checking for rage quit: $e");
     }
   }
 }
@@ -823,6 +1296,12 @@ void main() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     String userName = prefs.getString('userName') ?? "";
+    
+    // Check for streak reset and life recharge based on time (00:00 AM Chilean time)
+    if (isLoggedIn) {
+      await StorageService.checkAndResetStreakIfNeeded();
+      await StorageService.checkAndRechargeLivesIfNeeded();
+    }
     
     // --- NUEVA LÓGICA: ¿Es la primera vez que abre la app? ---
     bool esPrimeraVez = prefs.getBool('esPrimeraVez') ?? true;
@@ -1054,7 +1533,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 3500),
+      duration: const Duration(milliseconds: 4000), // 4 seconds animation duration
       vsync: this,
     );
     
@@ -1074,6 +1553,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     
     _validarYContinuar();
     StorageService.loadFromFirebase(); // Load streak data from Firebase
+    StorageService.checkForRageQuit(); // Check for rage quit (anti-cheat)
+    StorageService.checkAndRechargeLivesIfNeeded(); // Check and recharge lives based on time
   }
 
   @override
@@ -1083,8 +1564,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   }
 
   Future<void> _validarYContinuar() async {
-    // Wait for animation to complete (1.5 seconds)
-    await Future.delayed(const Duration(milliseconds: 1500));
+    // Wait for animation to complete (5 seconds + 5ms to give users time to read the disclaimer)
+    await Future.delayed(const Duration(milliseconds: 5005));
     
     try {
       var query = await FirebaseFirestore.instance
@@ -1197,6 +1678,54 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                         color: Colors.white70,
                         fontSize: 20,
                         fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  // Disclaimer text
+                  AnimatedBuilder(
+                    animation: _fadeAnimation,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _fadeAnimation.value * 0.7,
+                        child: child,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              color: Colors.lightBlue,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Recuerda que el criterio de evaluacion de los examenes son en base al banco de preguntas directo de la DGAC - EOV (2021)",
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1772,10 +2301,17 @@ class _MainMenuState extends State<MainMenu> {
     _loadStreakData();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when dependencies change (e.g., when returning to this screen)
+    _loadStreakData();
+  }
+
   Future<void> _loadStreakData() async {
     final streakData = await StorageService.getStreakData();
     final history = await StorageService.getExamHistory();
-    final allPartialProgress = await StorageService.getAllPartialProgress();
+    final allPartialProgress = await StorageService.getPracticeModeProgress(); // Only load practice mode progress
     final prefs = await SharedPreferences.getInstance();
     final rawUserName = prefs.getString('userName') ?? '';
 
@@ -1926,17 +2462,15 @@ class _MainMenuState extends State<MainMenu> {
     
     if (!context.mounted) return;
     
-    if (partialProgress != null && partialProgress.questionPool != null) {
-      // Directly continue the quiz without showing mode selection
-      final isTestMode = partialProgress.mode == 'test';
-      
+    if (partialProgress != null && partialProgress.questionPool != null && partialProgress.mode == 'practice') {
+      // Directly continue the quiz without showing mode selection (only for practice mode)
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => QuizPage(
             preguntasRecibidas: partialProgress.questionPool!,
             tituloMateria: materia['nombre'].toString(),
-            isTestMode: isTestMode,
+            isTestMode: false, // Always false for practice mode
             partialProgress: partialProgress,
           ),
         ),
@@ -1945,13 +2479,13 @@ class _MainMenuState extends State<MainMenu> {
         _loadStreakData();
       });
     } else {
-      // If no partial progress or it doesn't match, show mode selection
+      // If no partial progress or it doesn't match practice mode, show mode selection
       _mostrarSeleccionModo(context, materia);
     }
   }
 
   @override
-Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
   final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
   final Color textColor = esModoOscuro ? AppColors.darkText : AppColors.lightText;
   final Color secondaryTextColor = esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
@@ -1969,8 +2503,10 @@ Widget build(BuildContext context) {
       : widget.materias.first;
   
   // Determine if we should show "Continuar estudiando" or "Empieza por aquí"
-  // Show "Continuar estudiando" if the most recent activity is practice mode OR if there's partial progress
-  final bool hasHistory = ultimoModo == 'practice' || _mostRecentPartialProgress != null;
+  // Restrict "Continue Studying" to ONLY be available in Study Mode (Modo Estudio)
+  // Show "Continuar estudiando" only if the most recent activity is practice mode AND/OR if there's partial progress in practice mode
+  final bool hasHistory = (ultimoModo == 'practice') || 
+                         (_mostRecentPartialProgress != null && _mostRecentPartialProgress!.mode == 'practice');
   final String? modoLabel = ultimoModo != null ? _modoLabel(ultimoModo) : null;
   
   // If there's partial progress, update the label to show it's a continuation
@@ -2048,7 +2584,7 @@ Widget build(BuildContext context) {
     final nombreMateria = materia['nombre'].toString();
     final stats = _statsMateria(nombreMateria);
 
-    // Check if this subject has partial progress
+    // Check if this subject has partial progress (only practice mode is loaded now)
     final subjectProgress = _allPartialProgress[nombreMateria];
     final progressPercentage = subjectProgress?.completionPercentage ?? 0.0;
 
@@ -2158,21 +2694,32 @@ Widget build(BuildContext context) {
   void _mostrarResumenStreak(BuildContext context) async {
     final globalStreak = await StorageService.getGlobalStreakData();
     final streakData = await StorageService.getStreakData();
+    final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     
     if (context.mounted) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: esModoOscuro ? AppColors.darkCard.withOpacity(0.95) : Colors.white.withOpacity(0.95),
           title: Row(
             children: [
               const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
               const SizedBox(width: 12),
-              const Text("Resumen de Rachas", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                "Resumen de Rachas", 
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: esModoOscuro ? Colors.white : Colors.black,
+                ),
+              ),
             ],
           ),
           content: streakData == null
-              ? const Text("Aún no has completado exámenes de racha.")
+              ? Text(
+                  "Aún no has completado exámenes de racha.",
+                  style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+                )
               : SingleChildScrollView(
                   child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2180,6 +2727,7 @@ Widget build(BuildContext context) {
                     // Global streak display
                     Card(
                       margin: const EdgeInsets.only(bottom: 16),
+                      color: esModoOscuro ? AppColors.darkCard.withOpacity(0.8) : Colors.grey[50],
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -2191,7 +2739,11 @@ Widget build(BuildContext context) {
                                 const SizedBox(width: 8),
                                 Text(
                                   "Racha Global: ${streakData.streakDays} días",
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold, 
+                                    fontSize: 16,
+                                    color: esModoOscuro ? Colors.white : Colors.black,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2202,7 +2754,10 @@ Widget build(BuildContext context) {
                                 const SizedBox(width: 8),
                                 Text(
                                   "Racha Máxima: ${streakData.maxStreakDays} días",
-                                  style: const TextStyle(fontSize: 14),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2213,7 +2768,10 @@ Widget build(BuildContext context) {
                                 const SizedBox(width: 8),
                                 Text(
                                   "Total Exámenes Aprobados: ${streakData.totalExams}",
-                                  style: const TextStyle(fontSize: 14),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2225,18 +2783,25 @@ Widget build(BuildContext context) {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: esModoOscuro ? Colors.grey.shade800.withOpacity(0.6) : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         children: [
-                          const Text("Vidas Disponibles", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          Text(
+                            "Vidas Disponibles", 
+                            style: TextStyle(
+                              fontSize: 14, 
+                              fontWeight: FontWeight.bold,
+                              color: esModoOscuro ? Colors.white : Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: List.generate(3, (index) {
                               final life = globalStreak.lives[index];
-                              return _buildImprovedLifeDisplay(life, index);
+                              return _buildImprovedLifeDisplay(life, index, esModoOscuro);
                             }),
                           ),
                         ],
@@ -2248,7 +2813,10 @@ Widget build(BuildContext context) {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cerrar"),
+              child: Text(
+                "Cerrar",
+                style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+              ),
             ),
           ],
         ),
@@ -2256,7 +2824,7 @@ Widget build(BuildContext context) {
     }
   }
 
-  Widget _buildImprovedLifeDisplay(LifeData life, int index) {
+  Widget _buildImprovedLifeDisplay(LifeData life, int index, bool esModoOscuro) {
     return Column(
       children: [
         Container(
@@ -2292,7 +2860,7 @@ Widget build(BuildContext context) {
               final now = tz.TZDateTime.now(tz.local);
               final remaining = life.rechargeTime!.difference(now);
               if (remaining.isNegative) {
-                return const Text(
+                return Text(
                   "Lista",
                   style: TextStyle(
                     fontSize: 10,
@@ -2306,16 +2874,16 @@ Widget build(BuildContext context) {
               final seconds = remaining.inSeconds % 60;
               return Text(
                 '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey,
+                  color: esModoOscuro ? Colors.white70 : Colors.grey,
                 ),
               );
             },
           )
         else
-          const Text(
+          Text(
             "Lista",
             style: TextStyle(
               fontSize: 10,
@@ -2360,12 +2928,13 @@ Widget build(BuildContext context) {
         preguntasTest: preguntasTest,
         lives: livesDisplay,
         rachaActiva: _rachaActivaMax,
-        onContinue: partialProgress != null ? () {
+        onContinue: partialProgress != null && partialProgress.mode == 'practice' ? () {
           Navigator.pop(context);
           _continuarEstudio(context, materia);
         } : null,
         currentQuestion: partialProgress?.currentQuestionIndex != null ? partialProgress!.currentQuestionIndex + 1 : null,
         totalQuestions: partialProgress?.totalQuestions,
+        partialProgressMode: partialProgress?.mode, // Pass the mode of partial progress
         onPractice: () {
           Navigator.pop(context);
           _irAlQuiz(context, materia, false);
@@ -2497,8 +3066,10 @@ Widget build(BuildContext context) {
             tituloMateria: materia['nombre'].toString(),
           ),
         ),
-      ).then((_) {
-        // Refresh data when returning from streak quiz
+      ).then((result) {
+        // Check for rage quit (anti-cheat) when returning from streak quiz
+        StorageService.checkForRageQuit();
+        // Refresh data when returning from streak quiz (always refresh)
         _loadStreakData();
       });
     }
@@ -2604,6 +3175,7 @@ class _QuizPageState extends State<QuizPage> {
         timeSpentSeconds: totalTimeSpent,
         questionPool: preguntas, // Include the question pool for restoration
         currentQuestionIndex: preguntaActual, // Save current question position
+        reachedFiftyPercent: false, // Not applicable for practice/test modes
       );
       StorageService.savePartialProgress(progress);
     }
@@ -2813,8 +3385,8 @@ class _QuizPageState extends State<QuizPage> {
     
     StorageService.saveExamResult(examResult);
     
-    // Clear partial progress since exam is now complete
-    StorageService.clearPartialProgress(widget.tituloMateria);
+    // Clear partial progress only for this mode since exam is now complete
+    StorageService.clearPartialProgress(widget.tituloMateria, mode: widget.isTestMode ? 'test' : 'practice');
   }
 
   List<Map<String, dynamic>> _getAllQuestionsWithAnswers() {
@@ -3575,7 +4147,10 @@ class _QuizPageState extends State<QuizPage> {
           ElevatedButton.icon(
             icon: const Icon(Icons.home),
             label: const Text("Volver al Inicio"),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              // Refresh the parent screen's data when returning
+              Navigator.pop(context, true); // Pass true to indicate data should be refreshed
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.indigo,
               foregroundColor: Colors.white,
@@ -4166,6 +4741,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
   late Timer _timer;
   int _tiempoRestante = 0;
   bool _tiempoAgotado = false;
+  bool _reachedFiftyPercent = false; // Anti-cheat flag
 
   @override
   void initState() {
@@ -4195,7 +4771,39 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
   @override
   void dispose() {
     _timer.cancel();
+    
+    // Save partial progress with anti-cheat flag if not finished
+    if (!_tiempoAgotado) {
+      _savePartialProgress();
+    }
+    
     super.dispose();
+  }
+
+  void _savePartialProgress() {
+    final answeredCount = respuestasUsuario.where((r) => r != null).length;
+    if (answeredCount > 0) {
+      // Check if reached 50% threshold
+      final completionPercentage = answeredCount / preguntas.length;
+      if (completionPercentage >= 0.5) {
+        _reachedFiftyPercent = true;
+      }
+      
+      final progress = PartialExamProgress(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        subject: widget.tituloMateria,
+        date: DateTime.now(),
+        totalQuestions: preguntas.length,
+        answeredQuestions: answeredCount,
+        mode: 'streak',
+        userAnswers: respuestasUsuario,
+        timeSpentSeconds: StreakConfig.getTotalTimeForSubject(widget.tituloMateria) - _tiempoRestante,
+        questionPool: preguntas,
+        currentQuestionIndex: preguntaActual,
+        reachedFiftyPercent: _reachedFiftyPercent,
+      );
+      StorageService.savePartialProgress(progress);
+    }
   }
 
   String _formatearTiempo(int segundos) {
@@ -4242,7 +4850,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
     double porcentaje = preguntas.isNotEmpty ? puntaje / preguntas.length : 0.0;
     bool passed = porcentaje >= 0.7;
     
-    // Update streak data (using 60% threshold for streak logic)
+    // Update streak data (using 70% threshold for streak logic)
     StorageService.updateStreakAfterExam(widget.tituloMateria, passed, porcentaje);
     
     // Save exam result
@@ -4257,13 +4865,13 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
       incorrectAnswers: _getIncorrectAnswers(),
       weakTopics: _getWeakTopics(),
       allQuestions: _getAllQuestionsWithAnswers(),
-      passed: porcentaje >= 0.6, // Only count if 60% or higher
+      passed: porcentaje >= 0.7, // Only count if 70% or higher
     );
     
     StorageService.saveExamResult(examResult);
     
-    // Clear partial progress since exam is now complete
-    StorageService.clearPartialProgress(widget.tituloMateria);
+    // Clear partial progress only for streak mode since exam is now complete
+    StorageService.clearPartialProgress(widget.tituloMateria, mode: 'streak');
     
     if (mounted) {
       Navigator.pushReplacement(
@@ -4278,7 +4886,10 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
             incorrectAnswers: _getIncorrectAnswersWithExplanations(),
           ),
         ),
-      );
+      ).then((_) {
+        // This won't normally execute due to pushReplacement, but kept for safety
+        // The main refresh happens via didChangeDependencies in MainMenu
+      });
     }
   }
 
@@ -4741,7 +5352,10 @@ class StreakResultPage extends StatelessWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.home),
                 label: const Text("Volver al Panel"),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  // Refresh the parent screen's data when returning
+                  Navigator.pop(context, true); // Pass true to indicate data should be refreshed
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,
                   foregroundColor: Colors.white,
@@ -5191,6 +5805,43 @@ class PantallaAcercaDe extends StatelessWidget {
               esModoOscuro,
               '📱 Sobre la Aplicación',
               'Esta aplicación está diseñada para ayudar a los estudiantes a preparar sus exámenes teóricos de manera interactiva y efectiva. Cuenta con múltiples modos de estudio, seguimiento de progreso, y un sistema de racha para mantener la constancia en el aprendizaje.',
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Evaluation Criteria Notice
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: esModoOscuro ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: esModoOscuro ? Colors.blue.withOpacity(0.3) : Colors.blue.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Recuerda que el criterio de evaluacion de los examenes son en base al banco de preguntas directo de la DGAC - EOV (2021)",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: esModoOscuro ? Colors.white70 : Colors.black87,
+                        height: 1.4,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             
             const SizedBox(height: 24),

@@ -20,6 +20,7 @@ class ModeSelectorSheet extends StatelessWidget {
   final VoidCallback? onContinue; // New callback for continue studying
   final int? currentQuestion; // Current question index
   final int? totalQuestions; // Total questions for progress display
+  final String? partialProgressMode; // Mode of the partial progress ('practice', 'test', or 'streak')
 
   const ModeSelectorSheet({
     super.key,
@@ -34,6 +35,7 @@ class ModeSelectorSheet extends StatelessWidget {
     this.onContinue,
     this.currentQuestion,
     this.totalQuestions,
+    this.partialProgressMode, // Add this parameter
   });
 
   static String _vidasLabel(int lives) {
@@ -101,8 +103,8 @@ class ModeSelectorSheet extends StatelessWidget {
                 style: TextStyle(fontSize: 12.5, color: secondaryTextColor),
               ),
               const SizedBox(height: 14),
-              // Continue studying option (if progress exists)
-              if (onContinue != null && currentQuestion != null && totalQuestions != null)
+              // Continue studying option (if progress exists AND it's practice mode only)
+              if (onContinue != null && currentQuestion != null && totalQuestions != null && partialProgressMode == 'practice')
                 Semantics(
                   button: true,
                   label: 'Continuar estudiando. Pregunta $currentQuestion de $totalQuestions.',
@@ -120,7 +122,7 @@ class ModeSelectorSheet extends StatelessWidget {
                     secondaryTextColor: secondaryTextColor,
                   ),
                 ),
-              if (onContinue != null && currentQuestion != null && totalQuestions != null)
+              if (onContinue != null && currentQuestion != null && totalQuestions != null && partialProgressMode == 'practice')
                 const SizedBox(height: 10),
               Semantics(
                 button: true,

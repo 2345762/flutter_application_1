@@ -36,12 +36,9 @@ class SubjectCard extends StatelessWidget {
     final Color textColor = esModoOscuro ? darkTextColor : lightTextColor;
 
     final String estadoLabel = 'Progreso: ${(progressPercentage * 100).round()}%';
-    final String rachaLabel = streakDays > 0
-        ? '. Racha activa de $streakDays días'
-        : '';
     final String actualLabel = esMateriaActual ? '. Materia actual' : '';
     final String semanticsLabel =
-        '$nombre. $estadoLabel$rachaLabel$actualLabel';
+        '$nombre. $estadoLabel$actualLabel';
 
     return Semantics(
       button: true,
@@ -88,67 +85,13 @@ class SubjectCard extends StatelessWidget {
                         double escala = esEscritorio ? 0.78 : 0.88;
                         return Transform.scale(
                           scale: escala,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Image.asset(
-                                imagenAsset,
-                                cacheWidth: 800,
-                                filterQuality: FilterQuality.high,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.error),
-                              ),
-                              if (streakDays > 0)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.orange.shade400,
-                                          Colors.red.shade400,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.orange.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.local_fire_department,
-                                          color: Colors.white,
-                                          size: 11,
-                                        ),
-                                        const SizedBox(width: 2),
-                                        Text(
-                                          "$streakDays",
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
+                          child: Image.asset(
+                            imagenAsset,
+                            cacheWidth: 800,
+                            filterQuality: FilterQuality.high,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.error),
                           ),
                         );
                       },
