@@ -37,6 +37,7 @@ import 'widgets/panel_estudio/mode_selector_sheet.dart';
 import 'widgets/panel_estudio/continue_studying_card.dart';
 import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
+import 'widgets/panel_estudio/user_profile_page.dart';
 
 // =============================================================
 // UTILIDADES DE ZONA HORARIA CHILENA
@@ -678,21 +679,9 @@ class StorageService {
     int newMaxStreak = workingStreak.maxStreakDays;
     DateTime? newLastPassedExamDate = workingStreak.lastPassedExamDate;
     
-    // Deduct a life if failed the exam
+    // Lives are now deducted when starting streak mode, not on completion
+    // No need to deduct lives here since it's already done atomically at the start
     List<LifeData> updatedLives = List.from(globalWithRechargedLives.lives);
-    if (!passedThreshold) {
-      // Find first available life and mark it as unavailable with 8-hour recharge
-      for (int i = 0; i < updatedLives.length; i++) {
-        if (updatedLives[i].isAvailable) {
-          final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
-          updatedLives[i] = LifeData(
-            isAvailable: false,
-            rechargeTime: rechargeTime,
-          );
-          break; // Only deduct one life per failed exam
-        }
-      }
-    }
 
     if (passedThreshold) {
       newDailyExamsPassed++;
@@ -1161,6 +1150,434 @@ class StorageService {
     }
   }
 
+  // Atomically deduct a life using Firebase transaction for cross-device consistency
+  static Future<bool> deductLifeAtomically() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userName = prefs.getString('userName');
+      
+      if (userName == null) return false;
+      
+      // Use Firebase transaction to ensure atomic operation across devices
+      final userDocRef = FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName);
+      
+      // Retry logic for network failures
+      int maxRetries = 3;
+      int attempt = 0;
+      
+      while (attempt < maxRetries) {
+        try {
+          final result = await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final snapshot = await transaction.get(userDocRef);
+            
+            if (!snapshot.exists) {
+              throw Exception('User document does not exist');
+            }
+            
+            final userData = snapshot.data() as Map<String, dynamic>;
+            
+            // Get current lives data
+            List<dynamic> livesDataJson = userData['livesData'] as List<dynamic>? ?? [];
+            List<LifeData> lives = livesDataJson
+                .map((lifeJson) => LifeData.fromJson(lifeJson as Map<String, dynamic>))
+                .toList();
+            
+            // Ensure we have exactly 3 lives
+            while (lives.length < 3) {
+              lives.add(LifeData(isAvailable: true));
+            }
+            if (lives.length > 3) {
+              lives = lives.sublist(0, 3);
+            }
+            
+            // Check for recharged lives
+            final now = tz.TZDateTime.now(tz.local);
+            final nowAsDateTime = _toChileanTimeAsDateTime(now);
+            
+            for (int i = 0; i < lives.length; i++) {
+              if (!lives[i].isAvailable && lives[i].rechargeTime != null) {
+                if (nowAsDateTime.isAfter(lives[i].rechargeTime!) || nowAsDateTime.isAtSameMomentAs(lives[i].rechargeTime!)) {
+                  lives[i] = LifeData(isAvailable: true);
+                }
+              }
+            }
+            
+            // Find first available life
+            int availableLifeIndex = -1;
+            for (int i = 0; i < lives.length; i++) {
+              if (lives[i].isAvailable) {
+                availableLifeIndex = i;
+                break;
+              }
+            }
+            
+            if (availableLifeIndex == -1) {
+              // No lives available
+              return false;
+            }
+            
+            // Deduct the life
+            final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
+            lives[availableLifeIndex] = LifeData(
+              isAvailable: false,
+              rechargeTime: rechargeTime,
+            );
+            
+            // Update Firebase document
+            transaction.update(userDocRef, {
+              'livesData': lives.map((life) => life.toJson()).toList(),
+              'globalLives': lives.where((life) => life.isAvailable).length,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+            
+            return true;
+          });
+          
+          // If transaction succeeded, update local storage
+          if (result == true) {
+            final globalStreak = await getGlobalStreakData();
+            final rechargedStreak = await _rechargeGlobalLivesIfNeeded(globalStreak);
+            
+            // Deduct one life locally to match Firebase
+            List<LifeData> updatedLives = List.from(rechargedStreak.lives);
+            for (int i = 0; i < updatedLives.length; i++) {
+              if (updatedLives[i].isAvailable) {
+                final now = tz.TZDateTime.now(tz.local);
+                final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
+                updatedLives[i] = LifeData(
+                  isAvailable: false,
+                  rechargeTime: rechargeTime,
+                );
+                break;
+              }
+            }
+            
+            final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
+            await saveGlobalStreakData(updatedGlobalStreak);
+          }
+          
+          return result == true;
+        } catch (e) {
+          attempt++;
+          if (attempt < maxRetries) {
+            print("Firebase transaction attempt $attempt failed: $e. Retrying...");
+            await Future.delayed(Duration(milliseconds: 500 * attempt));
+          } else {
+            print("Firebase transaction failed after $maxRetries attempts: $e");
+            rethrow;
+          }
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      print("Error in atomic life deduction: $e");
+      return false;
+    }
+  }
+
+  // Refund a life (for cases where quiz fails to start after deduction)
+  static Future<void> refundLifeAtomically() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userName = prefs.getString('userName');
+      
+      if (userName == null) return;
+      
+      final userDocRef = FirebaseFirestore.instance
+          .collection('user_summaries')
+          .doc(userName);
+      
+      // Retry logic for network failures
+      int maxRetries = 3;
+      int attempt = 0;
+      
+      while (attempt < maxRetries) {
+        try {
+          await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final snapshot = await transaction.get(userDocRef);
+            
+            if (!snapshot.exists) {
+              throw Exception('User document does not exist');
+            }
+            
+            final userData = snapshot.data() as Map<String, dynamic>;
+            
+            // Get current lives data
+            List<dynamic> livesDataJson = userData['livesData'] as List<dynamic>? ?? [];
+            List<LifeData> lives = livesDataJson
+                .map((lifeJson) => LifeData.fromJson(lifeJson as Map<String, dynamic>))
+                .toList();
+            
+            // Ensure we have exactly 3 lives
+            while (lives.length < 3) {
+              lives.add(LifeData(isAvailable: true));
+            }
+            if (lives.length > 3) {
+              lives = lives.sublist(0, 3);
+            }
+            
+            // Find first unavailable life and make it available
+            for (int i = 0; i < lives.length; i++) {
+              if (!lives[i].isAvailable) {
+                lives[i] = LifeData(isAvailable: true);
+                break;
+              }
+            }
+            
+            // Update Firebase document
+            transaction.update(userDocRef, {
+              'livesData': lives.map((life) => life.toJson()).toList(),
+              'globalLives': lives.where((life) => life.isAvailable).length,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+          });
+          
+          // Update local storage
+          final globalStreak = await getGlobalStreakData();
+          List<LifeData> updatedLives = List.from(globalStreak.lives);
+          
+          // Find first unavailable life and make it available
+          for (int i = 0; i < updatedLives.length; i++) {
+            if (!updatedLives[i].isAvailable) {
+              updatedLives[i] = LifeData(isAvailable: true);
+              break;
+            }
+          }
+          
+          final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
+          await saveGlobalStreakData(updatedGlobalStreak);
+          
+          return; // Success
+        } catch (e) {
+          attempt++;
+          if (attempt < maxRetries) {
+            print("Firebase refund transaction attempt $attempt failed: $e. Retrying...");
+            await Future.delayed(Duration(milliseconds: 500 * attempt));
+          } else {
+            print("Firebase refund transaction failed after $maxRetries attempts: $e");
+            rethrow;
+          }
+        }
+      }
+    } catch (e) {
+      print("Error refunding life: $e");
+    }
+  }
+
+  // Normalize user data to ensure all users have proper lives structure
+  static Future<void> normalizeUserData() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userName = prefs.getString('userName');
+      
+      if (userName == null) return;
+      
+      print("Normalizing user data for: $userName");
+      
+      // Normalize local storage
+      final globalStreak = await getGlobalStreakData();
+      List<LifeData> normalizedLives = [];
+      
+      // Handle various data formats
+      if (globalStreak.lives.isEmpty) {
+        // No lives data - create default 3 lives
+        normalizedLives = List.generate(3, (_) => LifeData(isAvailable: true));
+        print("Created default 3 lives for user with no lives data");
+      } else if (globalStreak.lives.length < 3) {
+        // Incomplete lives data - fill with available lives
+        normalizedLives = List<LifeData>.from(globalStreak.lives);
+        while (normalizedLives.length < 3) {
+          normalizedLives.add(LifeData(isAvailable: true));
+        }
+        print("Filled incomplete lives data from ${globalStreak.lives.length} to 3 lives");
+      } else if (globalStreak.lives.length > 3) {
+        // Too many lives - truncate to 3
+        normalizedLives = globalStreak.lives.sublist(0, 3);
+        print("Truncated lives data from ${globalStreak.lives.length} to 3 lives");
+      } else {
+        // Correct number of lives - validate and clean
+        normalizedLives = List<LifeData>.from(globalStreak.lives);
+        
+        // Check for and fix invalid recharge times
+        final now = tz.TZDateTime.now(tz.local);
+        final nowAsDateTime = _toChileanTimeAsDateTime(now);
+        
+        for (int i = 0; i < normalizedLives.length; i++) {
+          if (!normalizedLives[i].isAvailable) {
+            // If recharge time is missing or in the past, make life available
+            if (normalizedLives[i].rechargeTime == null || 
+                nowAsDateTime.isAfter(normalizedLives[i].rechargeTime!)) {
+              normalizedLives[i] = LifeData(isAvailable: true);
+              print("Fixed invalid recharge time for life $i");
+            }
+          }
+        }
+        print("Validated and cleaned existing lives data");
+      }
+      
+      // Ensure recharge times are in Chilean timezone
+      for (int i = 0; i < normalizedLives.length; i++) {
+        if (!normalizedLives[i].isAvailable && normalizedLives[i].rechargeTime != null) {
+          // Convert to Chilean time if needed
+          final chileanTime = _toChileanTimeAsDateTime(normalizedLives[i].rechargeTime!);
+          if (chileanTime != normalizedLives[i].rechargeTime) {
+            normalizedLives[i] = LifeData(
+              isAvailable: false,
+              rechargeTime: chileanTime,
+            );
+            print("Converted recharge time to Chilean timezone for life $i");
+          }
+        }
+      }
+      
+      // Save normalized data locally
+      final normalizedGlobalStreak = GlobalStreakData(lives: normalizedLives);
+      await saveGlobalStreakData(normalizedGlobalStreak);
+      
+      // Normalize Firebase data
+      try {
+        final userDocRef = FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName);
+        
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final snapshot = await transaction.get(userDocRef);
+          
+          if (snapshot.exists) {
+            final userData = snapshot.data() as Map<String, dynamic>;
+            
+            // Handle legacy globalLives integer format
+            if (userData.containsKey('globalLives') && !userData.containsKey('livesData')) {
+              final legacyLives = userData['globalLives'] as int? ?? 3;
+              final List<LifeData> firebaseLives = List.generate(
+                3,
+                (index) => LifeData(isAvailable: index < legacyLives),
+              );
+              
+              transaction.update(userDocRef, {
+                'livesData': firebaseLives.map((life) => life.toJson()).toList(),
+                'globalLives': firebaseLives.where((life) => life.isAvailable).length,
+                'lastUpdated': FieldValue.serverTimestamp(),
+              });
+              print("Converted legacy globalLives format to livesData in Firebase");
+            }
+            // Update existing livesData with normalized version
+            else if (userData.containsKey('livesData')) {
+              transaction.update(userDocRef, {
+                'livesData': normalizedLives.map((life) => life.toJson()).toList(),
+                'globalLives': normalizedLives.where((life) => life.isAvailable).length,
+                'lastUpdated': FieldValue.serverTimestamp(),
+              });
+              print("Updated Firebase with normalized lives data");
+            }
+            // Create livesData if it doesn't exist
+            else {
+              transaction.update(userDocRef, {
+                'livesData': normalizedLives.map((life) => life.toJson()).toList(),
+                'globalLives': normalizedLives.where((life) => life.isAvailable).length,
+                'lastUpdated': FieldValue.serverTimestamp(),
+              });
+              print("Created livesData in Firebase for user");
+            }
+          } else {
+            // User document doesn't exist - create it with normalized data
+            transaction.set(userDocRef, {
+              'livesData': normalizedLives.map((life) => life.toJson()).toList(),
+              'globalLives': normalizedLives.where((life) => life.isAvailable).length,
+              'lastUpdated': FieldValue.serverTimestamp(),
+              'current_streak': 0,
+              'max_streak': 0,
+              'totalExams': 0,
+              'examHistory': [],
+              'studyProgress': {},
+            });
+            print("Created Firebase document with normalized lives data");
+          }
+        });
+        
+        print("Successfully normalized user data for: $userName");
+      } catch (e) {
+        print("Error normalizing Firebase data: $e");
+        // Continue even if Firebase normalization fails - local data is still normalized
+      }
+    } catch (e) {
+      print("Error normalizing user data: $e");
+    }
+  }
+
+  // Batch normalize all existing users in Firebase (for admin/migration purposes)
+  static Future<void> normalizeAllUsersInFirebase() async {
+    try {
+      print("Starting batch normalization of all users in Firebase...");
+      
+      final usersSnapshot = await FirebaseFirestore.instance
+          .collection('user_summaries')
+          .get();
+      
+      int processedCount = 0;
+      int errorCount = 0;
+      
+      for (var doc in usersSnapshot.docs) {
+        try {
+          final userData = doc.data() as Map<String, dynamic>;
+          final userId = doc.id;
+          
+          List<LifeData> normalizedLives = [];
+          
+          // Handle legacy globalLives integer format
+          if (userData.containsKey('globalLives') && !userData.containsKey('livesData')) {
+            final legacyLives = userData['globalLives'] as int? ?? 3;
+            normalizedLives = List.generate(
+              3,
+              (index) => LifeData(isAvailable: index < legacyLives),
+            );
+            print("Converted legacy format for user: $userId");
+          }
+          // Handle existing livesData
+          else if (userData.containsKey('livesData')) {
+            final livesDataJson = userData['livesData'] as List<dynamic>? ?? [];
+            normalizedLives = livesDataJson
+                .map((lifeJson) => LifeData.fromJson(lifeJson as Map<String, dynamic>))
+                .toList();
+            
+            // Normalize to exactly 3 lives
+            while (normalizedLives.length < 3) {
+              normalizedLives.add(LifeData(isAvailable: true));
+            }
+            if (normalizedLives.length > 3) {
+              normalizedLives = normalizedLives.sublist(0, 3);
+            }
+            print("Normalized existing lives for user: $userId");
+          }
+          // Create default lives if missing
+          else {
+            normalizedLives = List.generate(3, (_) => LifeData(isAvailable: true));
+            print("Created default lives for user: $userId");
+          }
+          
+          // Update the document
+          await doc.reference.update({
+            'livesData': normalizedLives.map((life) => life.toJson()).toList(),
+            'globalLives': normalizedLives.where((life) => life.isAvailable).length,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
+          
+          processedCount++;
+        } catch (e) {
+          print("Error processing user ${doc.id}: $e");
+          errorCount++;
+        }
+      }
+      
+      print("Batch normalization complete. Processed: $processedCount, Errors: $errorCount");
+    } catch (e) {
+      print("Error in batch normalization: $e");
+    }
+  }
+
   // Anti-cheat: Check for rage quit in Streak Mode
   static Future<void> checkForRageQuit() async {
     try {
@@ -1174,25 +1591,8 @@ class StorageService {
           // User reached 50% but didn't finish - treat as failure
           print("Rage quit detected in Streak Mode for ${progress.subject}. Deducting a life.");
           
-          // Deduct a life
-          final globalStreak = await getGlobalStreakData();
-          final now = tz.TZDateTime.now(tz.local);
-          List<LifeData> updatedLives = List.from(globalStreak.lives);
-          
-          // Find first available life and mark it as unavailable
-          for (int i = 0; i < updatedLives.length; i++) {
-            if (updatedLives[i].isAvailable) {
-              final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
-              updatedLives[i] = LifeData(
-                isAvailable: false,
-                rechargeTime: rechargeTime,
-              );
-              break;
-            }
-          }
-          
-          final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
-          await saveGlobalStreakData(updatedGlobalStreak);
+          // Use atomic deduction for consistency
+          await deductLifeAtomically();
           
           // Clear the partial progress to prevent repeated deductions (only for streak mode)
           await clearPartialProgress(progress.subject, mode: 'streak');
@@ -1220,8 +1620,10 @@ class StorageService {
               userData['globalStreak'] = streakData.toJson();
             }
             
-            userData['globalLives'] = updatedGlobalStreak.availableLives;
-            userData['livesData'] = updatedGlobalStreak.lives.map((life) => life.toJson()).toList();
+            // Sync updated lives
+            final globalStreak = await getGlobalStreakData();
+            userData['globalLives'] = globalStreak.availableLives;
+            userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
             userData['lastUpdated'] = FieldValue.serverTimestamp();
             
             // Use batch update for consistency
@@ -1299,6 +1701,7 @@ void main() async {
     
     // Check for streak reset and life recharge based on time (00:00 AM Chilean time)
     if (isLoggedIn) {
+      await StorageService.normalizeUserData(); // Normalize user data for all users
       await StorageService.checkAndResetStreakIfNeeded();
       await StorageService.checkAndRechargeLivesIfNeeded();
     }
@@ -1553,6 +1956,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     
     _validarYContinuar();
     StorageService.loadFromFirebase(); // Load streak data from Firebase
+    StorageService.normalizeUserData(); // Normalize user data for all users
     StorageService.checkForRageQuit(); // Check for rage quit (anti-cheat)
     StorageService.checkAndRechargeLivesIfNeeded(); // Check and recharge lives based on time
   }
@@ -2299,6 +2703,7 @@ class _MainMenuState extends State<MainMenu> {
   void initState() {
     super.initState();
     _loadStreakData();
+    StorageService.normalizeUserData(); // Normalize user data for all users
   }
 
   @override
@@ -2520,12 +2925,11 @@ class _MainMenuState extends State<MainMenu> {
     textColor: textColor,
     secondaryTextColor: secondaryTextColor,
     onStreakTap: () => _mostrarResumenStreak(context),
+    onProfileTap: () => _navegarAPerfil(context),
   );
 
   final Widget drawer = AppDrawer(
     userName: _userName,
-    materiasIniciadas: _materiasIniciadas,
-    totalMaterias: widget.materias.length,
     themeNotifier: themeNotifier,
     surfaceColor: esModoOscuro ? AppColors.darkCard : Colors.white,
     textColor: textColor,
@@ -2895,6 +3299,18 @@ class _MainMenuState extends State<MainMenu> {
     );
   }
 
+  void _navegarAPerfil(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfilePage(
+          userName: _userName,
+          themeNotifier: themeNotifier,
+        ),
+      ),
+    );
+  }
+
   void _mostrarSeleccionModo(BuildContext context, Map<String, dynamic> materia) async {
     final globalStreak = await StorageService.getGlobalStreakData();
 
@@ -3011,11 +3427,10 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _irAlStreakMode(BuildContext context, Map<String, dynamic> materia) async {
-    // Check if user has global lives
-    final globalStreak = await StorageService.getGlobalStreakData();
-    final availableLives = globalStreak.availableLives;
+    // Atomically deduct a life when starting streak mode to prevent race conditions
+    final lifeDeducted = await StorageService.deductLifeAtomically();
     
-    if (availableLives <= 0) {
+    if (!lifeDeducted) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -3031,14 +3446,28 @@ class _MainMenuState extends State<MainMenu> {
     final hasShownOnboarding = await StorageService.hasShownStreakOnboarding();
     
     if (!hasShownOnboarding) {
-      if (context.mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => PantallaOnboardingStreak(materia: materia)),
-        ).then((_) {
-          // Refresh data when returning from onboarding
-          _loadStreakData();
-        });
+      try {
+        if (context.mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => PantallaOnboardingStreak(materia: materia)),
+          ).then((_) {
+            // Refresh data when returning from onboarding
+            _loadStreakData();
+          });
+        }
+      } catch (e) {
+        // If onboarding fails, refund the life
+        print("Onboarding failed, refunding life: $e");
+        await StorageService.refundLifeAtomically();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Error al mostrar el instructivo. Se ha reembolsado tu vida."),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
       return;
     }
@@ -3057,21 +3486,35 @@ class _MainMenuState extends State<MainMenu> {
     int limite = StreakConfig.getQuestionsForSubject(materia['nombre'].toString());
     poolAEnviar = poolAEnviar.take(limite).toList();
 
-    if (context.mounted) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => StreakQuizPage(
-            preguntasRecibidas: poolAEnviar,
-            tituloMateria: materia['nombre'].toString(),
+    try {
+      if (context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StreakQuizPage(
+              preguntasRecibidas: poolAEnviar,
+              tituloMateria: materia['nombre'].toString(),
+            ),
           ),
-        ),
-      ).then((result) {
-        // Check for rage quit (anti-cheat) when returning from streak quiz
-        StorageService.checkForRageQuit();
-        // Refresh data when returning from streak quiz (always refresh)
-        _loadStreakData();
-      });
+        ).then((result) {
+          // Check for rage quit (anti-cheat) when returning from streak quiz
+          StorageService.checkForRageQuit();
+          // Refresh data when returning from streak quiz (always refresh)
+          _loadStreakData();
+        });
+      }
+    } catch (e) {
+      // If navigation fails, refund the life
+      print("Navigation to streak quiz failed, refunding life: $e");
+      await StorageService.refundLifeAtomically();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error al iniciar el examen. Se ha reembolsado tu vida."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 }
@@ -3081,7 +3524,7 @@ class QuizPage extends StatefulWidget {
   final List<Map<String, dynamic>> preguntasRecibidas;
   final String tituloMateria;
   final bool isTestMode;
-  final PartialExamProgress? partialProgress; // Add partial progress parameter
+  final PartialExamProgress? partialProgress; 
 
   const QuizPage({
     super.key,
@@ -4551,33 +4994,66 @@ class PantallaOnboardingStreak extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await StorageService.setStreakOnboardingShown();
-                  if (context.mounted) {
-                    if (materia != null) {
-                      // Start streak mode directly
-                      final dynamic poolRaw = materia!['pool'];
-                      List<Map<String, dynamic>> poolAEnviar = [];
+                  if (materia != null) {
+                    // Start streak mode directly
+                    final dynamic poolRaw = materia!['pool'];
+                    List<Map<String, dynamic>> poolAEnviar = [];
 
-                      if (poolRaw is List) {
-                        poolAEnviar = poolRaw.map((item) {
-                          return Map<String, dynamic>.from(item as Map);
-                        }).toList();
-                      }
+                    if (poolRaw is List) {
+                      poolAEnviar = poolRaw.map((item) {
+                        return Map<String, dynamic>.from(item as Map);
+                      }).toList();
+                    }
 
-                      poolAEnviar.shuffle();
-                      int limite = StreakConfig.getQuestionsForSubject(materia!['nombre'].toString());
-                      poolAEnviar = poolAEnviar.take(limite).toList();
+                    poolAEnviar.shuffle();
+                    int limite = StreakConfig.getQuestionsForSubject(materia!['nombre'].toString());
+                    poolAEnviar = poolAEnviar.take(limite).toList();
 
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StreakQuizPage(
-                            preguntasRecibidas: poolAEnviar,
-                            tituloMateria: materia!['nombre'].toString(),
+                    // Atomically deduct a life before starting streak mode
+                    final lifeDeducted = await StorageService.deductLifeAtomically();
+                    
+                    if (!lifeDeducted) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("No tienes vidas disponibles. Algunas están recargando."),
+                            backgroundColor: Colors.red,
                           ),
-                        ),
-                      );
-                    } else {
-                      // Just go back to main menu
+                        );
+                        Navigator.pop(context);
+                      }
+                      return;
+                    }
+
+                    try {
+                      if (context.mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StreakQuizPage(
+                              preguntasRecibidas: poolAEnviar,
+                              tituloMateria: materia!['nombre'].toString(),
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // If navigation fails, refund the life
+                      print("Navigation from onboarding failed, refunding life: $e");
+                      await StorageService.refundLifeAtomically();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Error al iniciar el examen. Se ha reembolsado tu vida."),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                        Navigator.pop(context);
+                      }
+                    }
+                  } else {
+                    // Just go back to main menu
+                    if (context.mounted) {
                       Navigator.pop(context);
                     }
                   }

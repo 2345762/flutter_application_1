@@ -6,8 +6,6 @@ class AppDrawer extends StatelessWidget {
   static const Color historialColor = Color(0xFF0091D5);
 
   final String userName;
-  final int materiasIniciadas;
-  final int totalMaterias;
   final ValueNotifier<ThemeMode> themeNotifier;
   final Color surfaceColor;
   final Color textColor;
@@ -21,8 +19,6 @@ class AppDrawer extends StatelessWidget {
   const AppDrawer({
     super.key,
     required this.userName,
-    required this.materiasIniciadas,
-    required this.totalMaterias,
     required this.themeNotifier,
     required this.surfaceColor,
     required this.textColor,
@@ -58,9 +54,6 @@ class AppDrawer extends StatelessWidget {
         ? 320
         : (screenWidth * 0.83);
     final Color dividerColor = textColor.withValues(alpha: 0.08);
-    final double progreso = totalMaterias > 0
-        ? materiasIniciadas / totalMaterias
-        : 0.0;
 
     return Drawer(
       width: drawerWidth,
@@ -106,38 +99,6 @@ class AppDrawer extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.4,
                       color: secondaryTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Semantics(
-                    label:
-                        'Materias iniciadas: $materiasIniciadas de $totalMaterias',
-                    excludeSemantics: true,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progreso,
-                              minHeight: 6,
-                              backgroundColor: textColor.withValues(alpha: 0.1),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                historialColor,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$materiasIniciadas/$totalMaterias',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: secondaryTextColor,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],

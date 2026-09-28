@@ -8,6 +8,7 @@ class PanelEstudioHeader extends StatelessWidget {
   final Color textColor;
   final Color secondaryTextColor;
   final VoidCallback onStreakTap;
+  final VoidCallback onProfileTap;
 
   const PanelEstudioHeader({
     super.key,
@@ -16,6 +17,7 @@ class PanelEstudioHeader extends StatelessWidget {
     required this.textColor,
     required this.secondaryTextColor,
     required this.onStreakTap,
+    required this.onProfileTap,
   });
 
   @override
@@ -42,32 +44,37 @@ class PanelEstudioHeader extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Hola, $userName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
+          child: GestureDetector(
+            onTap: onProfileTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Hola, $userName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                    decoration: TextDecoration.underline,
+                    decorationColor: textColor.withOpacity(0.5),
+                  ),
                 ),
-              ),
-              Text(
-                'ENCARGADO DE OPERACIONES DE VUELO',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                  color: secondaryTextColor,
+                Text(
+                  'ENCARGADO DE OPERACIONES DE VUELO',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                    color: secondaryTextColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 6),
