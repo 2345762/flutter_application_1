@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,6 +39,7 @@ import 'widgets/panel_estudio/continue_studying_card.dart';
 import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
 import 'widgets/panel_estudio/user_profile_page.dart';
+import 'widgets/ai_tutor_dialog.dart';
 
 // =============================================================
 // UTILIDADES DE ZONA HORARIA CHILENA
@@ -1690,6 +1692,11 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .timeout(const Duration(seconds: 10));
+    
+    // Initialize Firebase App Check with reCAPTCHA Enterprise
+    await FirebaseAppCheck.instance.activate(
+      webProvider: ReCaptchaEnterpriseProvider('6Lf3QtYtAAAAAEcDfc8k7mhTKZe9KJeeZEBGeyEn'),
+    );
     
     // Initialize timezone data
     tz_data.initializeTimeZones();
@@ -3427,21 +3434,6 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _irAlStreakMode(BuildContext context, Map<String, dynamic> materia) async {
-    // Atomically deduct a life when starting streak mode to prevent race conditions
-    final lifeDeducted = await StorageService.deductLifeAtomically();
-    
-    if (!lifeDeducted) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("No tienes vidas disponibles. Algunas están recargando. Revisa el tiempo restante en el selector de modo."),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
     // Check if onboarding has been shown
     final hasShownOnboarding = await StorageService.hasShownStreakOnboarding();
     
@@ -3457,17 +3449,31 @@ class _MainMenuState extends State<MainMenu> {
           });
         }
       } catch (e) {
-        // If onboarding fails, refund the life
-        print("Onboarding failed, refunding life: $e");
-        await StorageService.refundLifeAtomically();
+        // If onboarding fails, show error
+        print("Onboarding failed: $e");
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Error al mostrar el instructivo. Se ha reembolsado tu vida."),
+              content: Text("Error al mostrar el instructivo."),
               backgroundColor: Colors.orange,
             ),
           );
         }
+      }
+      return;
+    }
+
+    // Atomically deduct a life when starting streak mode to prevent race conditions
+    final lifeDeducted = await StorageService.deductLifeAtomically();
+    
+    if (!lifeDeducted) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No tienes vidas disponibles. Algunas están recargando. Revisa el tiempo restante en el selector de modo."),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
       return;
     }
@@ -4189,6 +4195,39 @@ class _QuizPageState extends State<QuizPage> {
                       color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                       fontSize: 14,
                       height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // AI Tutor Button
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // Get correct answer
+                      final resps = pregunta['respuestas'] as List;
+                      int correctIndex = -1;
+                      for (int j = 0; j < resps.length; j++) {
+                        if (resps[j]['puntos'] == 1) {
+                          correctIndex = j;
+                          break;
+                        }
+                      }
+                      final correctAnswer = correctIndex >= 0 ? resps[correctIndex]['texto'] : '';
+                      
+                      AiTutorDialog.show(
+                        context,
+                        formQuestion: pregunta['texto'] as String,
+                        correctAnswer: correctAnswer as String,
+                        theoreticalExplanation: pregunta['explicacion'] as String,
+                      );
+                    },
+                    icon: Icon(Icons.psychology_outlined, size: 18),
+                    label: Text('Preguntar al Tutor IA'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
@@ -5766,28 +5805,57 @@ class StreakResultPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           if (answer['explanation'] != null && answer['explanation'].toString().isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.lightbulb, color: Colors.blue, size: 14),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      answer['explanation'],
-                                      style: const TextStyle(
-                                        color: Colors.blue,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                ],
-                              ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.lightbulb, color: Colors.blue, size: 14),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          answer['explanation'],
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // AI Tutor Button for streak mode
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    AiTutorDialog.show(
+                                      context,
+                                      formQuestion: answer['question'] as String,
+                                      correctAnswer: answer['correctAnswer'] as String,
+                                      theoreticalExplanation: answer['explanation'] as String,
+                                    );
+                                  },
+                                  icon: Icon(Icons.psychology_outlined, size: 14),
+                                  label: Text('Preguntar al Tutor IA'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade700,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
                             ),
                           const SizedBox(height: 6),
                           Row(
@@ -6159,6 +6227,30 @@ class ExamDetailScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // AI Tutor Button for results review
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              AiTutorDialog.show(
+                                context,
+                                formQuestion: questionData['question'] as String,
+                                correctAnswer: questionData['correctAnswer'] as String,
+                                theoreticalExplanation: questionData['explanation'] as String,
+                              );
+                            },
+                            icon: Icon(Icons.psychology_outlined, size: 14),
+                            label: Text('Preguntar al Tutor IA'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
                         ],
