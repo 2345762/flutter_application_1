@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:firebase_ai/firebase_ai.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 
 class AiTutorException implements Exception {
   final String message;
@@ -58,8 +57,8 @@ class AiTutorService {
       // Update last request time
       _lastRequestTime = DateTime.now();
 
-      // Initialize Firebase AI with Google AI backend and App Check
-      final googleAI = FirebaseAI.googleAI(appCheck: FirebaseAppCheck.instance);
+      // Initialize Firebase AI with Google AI backend
+      final googleAI = FirebaseAI.googleAI();
       final model = googleAI.generativeModel(model: _model);
 
       // System instruction
