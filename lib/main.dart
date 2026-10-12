@@ -3064,6 +3064,13 @@ class _MainMenuState extends State<MainMenu> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _mostrarDialogoIA(context),
+        icon: const Icon(Icons.psychology_outlined),
+        label: const Text('Tutor IA'),
+        backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+        foregroundColor: Colors.white,
+      ),
     );
   }
 
@@ -3104,6 +3111,13 @@ class _MainMenuState extends State<MainMenu> {
           ),
         ),
       ),
+    ),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () => _mostrarDialogoIA(context),
+      icon: const Icon(Icons.psychology_outlined),
+      label: const Text('Tutor IA'),
+      backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+      foregroundColor: Colors.white,
     ),
   );
 }
@@ -3239,6 +3253,61 @@ class _MainMenuState extends State<MainMenu> {
         ),
       );
     }
+  }
+
+  void _mostrarDialogoIA(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.psychology_outlined, color: Colors.blue, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              "Tutor IA",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "El Tutor IA está disponible para ayudarte con tus dudas sobre las preguntas del examen.",
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "• Disponible al responder preguntas en modo Test, Estudio y Racha",
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                fontSize: 13,
+              ),
+            ),
+            Text(
+              "• También disponible al revisar resultados",
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Entendido"),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildImprovedLifeDisplay(LifeData life, int index, bool esModoOscuro) {
@@ -4250,11 +4319,12 @@ class _QuizPageState extends State<QuizPage> {
   Widget _buildBarraNavegacionAtractiva() {
     bool esPrimeraPregunta = preguntaActual == 0;
     bool esUltimaPregunta = preguntaActual == preguntas.length - 1;
-    
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: esModoOscuro ? AppColors.darkBackground : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -4629,6 +4699,129 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                     );
                   }),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          // AI Tutor section for remaining doubts
+          Card(
+            elevation: 4,
+            color: esModoOscuro ? AppColors.darkCard : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.psychology_outlined, color: Colors.blue, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Te quedó alguna duda?",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: esModoOscuro ? AppColors.darkText : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Pregunta al Tutor IA sobre las preguntas que no respondiste correctamente.",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: esModoOscuro ? AppColors.darkTextSecondary : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(preguntas.length, (index) {
+                    final pregunta = preguntas[index];
+                    final respuestas = List<Map<String, dynamic>>.from(pregunta['respuestas'] as List);
+                    final int? userAnswerIndex = respuestasUsuario[index];
+
+                    // Find correct answer
+                    int correctIndex = -1;
+                    for (int j = 0; j < respuestas.length; j++) {
+                      if (respuestas[j]['puntos'] == 1) {
+                        correctIndex = j;
+                        break;
+                      }
+                    }
+
+                    final bool isCorrect = userAnswerIndex != null && respuestas[userAnswerIndex]['puntos'] == 1;
+                    final bool wasAnswered = userAnswerIndex != null;
+                    final hasExplanation = pregunta.containsKey('explicacion') &&
+                        pregunta['explicacion'] != null &&
+                        pregunta['explicacion'].toString().trim().isNotEmpty;
+
+                    // Only show questions that were incorrect or unanswered AND have explanations
+                    if (wasAnswered && isCorrect) return const SizedBox.shrink();
+                    if (!hasExplanation) return const SizedBox.shrink();
+
+                    final correctAnswer = correctIndex >= 0 ? respuestas[correctIndex]['texto'] : '';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: esModoOscuro ? Colors.red.shade800 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: esModoOscuro ? Colors.red.shade600 : Colors.red.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Pregunta ${index + 1}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: esModoOscuro ? Colors.red.shade200 : Colors.red.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            pregunta['texto'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: esModoOscuro ? AppColors.darkText : Colors.black87,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              AiTutorDialog.show(
+                                context,
+                                formQuestion: pregunta['texto'] as String,
+                                correctAnswer: correctAnswer as String,
+                                theoreticalExplanation: pregunta['explicacion'] as String,
+                              );
+                            },
+                            icon: const Icon(Icons.psychology_outlined, size: 14),
+                            label: const Text('Preguntar al Tutor IA'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).where((widget) => widget is! SizedBox),
                 ],
               ),
             ),
@@ -5657,10 +5850,13 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
                 ),
               ],
             ),
-      bottomNavigationBar: _tiempoAgotado 
-          ? null 
+      bottomNavigationBar: _tiempoAgotado
+          ? null
           : Container(
               padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: esModoOscuro ? const Color(0xFF0F172A) : Colors.white,
+              ),
               child: ElevatedButton(
                 onPressed: respondido ? _siguientePregunta : null,
                 style: ElevatedButton.styleFrom(
@@ -5901,6 +6097,99 @@ class StreakResultPage extends StatelessWidget {
                       ),
                     )),
                   ],
+                ),
+              const SizedBox(height: 32),
+              // AI Tutor section for remaining doubts
+              if (incorrectAnswers.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.psychology_outlined, color: Colors.blue, size: 24),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "Te quedó alguna duda?",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Pregunta al Tutor IA sobre las preguntas que no respondiste correctamente.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ...incorrectAnswers.take(5).map((answer) {
+                        final hasExplanation = answer['explanation'] != null &&
+                            answer['explanation'].toString().trim().isNotEmpty;
+
+                        if (!hasExplanation) return const SizedBox.shrink();
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                answer['question'],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  AiTutorDialog.show(
+                                    context,
+                                    formQuestion: answer['question'] as String,
+                                    correctAnswer: answer['correctAnswer'] as String,
+                                    theoreticalExplanation: answer['explanation'] as String,
+                                  );
+                                },
+                                icon: const Icon(Icons.psychology_outlined, size: 14),
+                                label: const Text('Preguntar al Tutor IA'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).where((widget) => widget is! SizedBox),
+                    ],
+                  ),
                 ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
