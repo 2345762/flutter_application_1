@@ -16,8 +16,7 @@ This document outlines the manual steps required to set up Firebase AI Logic for
 2. Select your project
 3. Navigate to **Build** → **AI Logic** → **Get Started**
 4. Click **Enable AI Logic** for your project
-5. Select the pricing plan (Spark/Blaze) - AI Logic requires Blaze plan for production use
-6. Accept the terms and conditions
+5. Accept the terms and conditions
 
 ### 2. Enable Gemini Developer API
 
@@ -26,54 +25,40 @@ This document outlines the manual steps required to set up Firebase AI Logic for
 3. Note: The app uses `gemini-2.5-flash` model
 4. Verify that the model is available in your region
 
-### 3. Configure App Check for Web
+### 3. Configure App Check for Web (reCAPTCHA Enterprise)
 
-Since this is a Flutter web app deployed on Netlify, you need to configure App Check with reCAPTCHA:
+Since this is a Flutter web app deployed on Netlify, you need to configure App Check with reCAPTCHA Enterprise (Fraud Defense):
 
-1. Go to **Build** → **App Check** in Firebase Console
-2. Click **Get Started** 
-3. Select **Web apps** as your platform
-4. Choose **reCAPTCHA v3** as the App Check provider
-5. Register your Netlify domain:
-   - Enter your Netlify domain (e.g., `your-app.netlify.app`)
-   - Add any custom domains if applicable
-6. Copy the **reCAPTCHA Site Key** - you'll need this for initialization
-7. Copy the **App Check Token** for verification
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select your Firebase project
+3. Navigate to **Security** → **Fraud Defense** (reCAPTCHA Enterprise)
+4. Create a new reCAPTCHA Enterprise key:
+   - Label: Flutter Web App
+   - Platform: Web
+   - Domains: `app-eov.netlify.app` and `localhost`
+5. Copy the **reCAPTCHA Enterprise Site Key ID**
+6. Go to [Firebase Console](https://console.firebase.google.com/)
+7. Navigate to **Build** → **App Check** → **Apps**
+8. Register your web app with the reCAPTCHA Enterprise Site Key ID
 
-### 4. Restrict App Check to Your Netlify Domain
+### 4. Deployment and Verification Order
 
-To prevent abuse and ensure only your Netlify app can use the AI service:
+Follow this exact order:
 
-1. In **App Check** settings, go to **App Check tokens**
-2. Find your web app token
-3. Click on the token to view details
-4. Ensure the domain restrictions are set to your Netlify domain
-5. Enable **Token refresh** for web apps
+1. **Deploy code**: Deploy your Flutter web app to Netlify
+2. **Check App Check**: Verify App Check is working in Firebase Console (check metrics/logs)
+3. **Check APIs metrics**: Monitor AI Logic API usage in Firebase Console
+4. **Enforce App Check**: Once verified working, enforce App Check on Firebase AI Logic only
+   - **IMPORTANT**: Do NOT enforce App Check on Firestore, Auth, or Storage unless explicitly instructed
 
-### 5. Configure Firebase AI Security Rules
+### 5. Local Development Testing
 
-Navigate to **Build** → **AI Logic** → **Security** and configure:
+For local testing with localhost:
 
-1. **Authentication Requirement**: Ensure requests require authenticated users
-2. **Rate Limiting**: Set appropriate rate limits to prevent abuse
-3. **Content Filtering**: Enable safety filters for educational content
-4. **Quota Management**: Monitor and set daily/monthly quotas
-
-### 6. Add Firebase AI Initialization to Your App
-
-In your `main.dart`, ensure Firebase AI is properly initialized alongside Firebase Core:
-
-```dart
-import 'package:firebase_ai/firebase_ai.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
-
-// In your main() function after Firebase.initializeApp():
-await FirebaseAppCheck.instance.activate(
-  webRecaptchaSiteKey: 'YOUR_RECAPTCHA_SITE_KEY',
-);
-
-// Firebase AI will be automatically available via FirebaseAI.googleAI()
-```
+1. Use the App Check debug token
+2. Add `FIREBASE_APPCHECK_DEBUG_TOKEN` to your `web/index.html` (as a meta tag or script)
+3. **CRITICAL**: NEVER commit this debug token line to the repository
+4. Remove or comment out the debug token before committing
 
 ## Important Security Notes
 
@@ -83,22 +68,13 @@ await FirebaseAppCheck.instance.activate(
 
 2. **App Check is Mandatory**: Always use App Check to prevent unauthorized access to your AI service.
 
-3. **Domain Restriction**: Restrict App Check tokens to your specific Netlify domain to prevent abuse from other sites.
+3. **Domain Restriction**: Restrict reCAPTCHA Enterprise to your specific Netlify domain and localhost to prevent abuse from other sites.
 
-4. **Authentication**: Consider requiring user authentication for AI Tutor access to track usage and prevent abuse.
+4. **Rate Limiting**: Implement both client-side (the 3-second cooldown in the service) and server-side rate limiting.
 
-5. **Rate Limiting**: Implement both client-side (the 3-second cooldown in the service) and server-side rate limiting.
-
-6. **Cost Monitoring**: Monitor Firebase AI usage costs, as AI API calls can accumulate charges.
+5. **Cost Monitoring**: Monitor Firebase AI usage costs, as AI API calls can accumulate charges.
 
 ## Testing the Setup
-
-### Local Development
-
-For local testing, you may need to:
-1. Use Firebase emulators if available for AI Logic
-2. Temporarily disable App Check (only for development)
-3. Use test API keys with strict quotas
 
 ### Production Testing
 
@@ -113,11 +89,10 @@ For local testing, you may need to:
 
 **"Firebase AI not enabled"**
 - Ensure AI Logic is enabled in Firebase Console
-- Check your Firebase project billing plan (Blaze required)
 
 **"App Check token invalid"**
-- Verify reCAPTCHA site key is correct
-- Check domain restrictions in App Check settings
+- Verify reCAPTCHA Enterprise site key ID is correct
+- Check domain restrictions in Google Cloud Console
 - Ensure your Netlify domain is properly registered
 
 **"Quota exceeded"**
@@ -134,7 +109,7 @@ For local testing, you may need to:
 
 1. **Usage Monitoring**: Regularly check AI Logic usage in Firebase Console
 2. **Cost Alerts**: Set up billing alerts for unexpected usage spikes
-3. **Error Tracking**: Monitor Firebase AI errors and adjust security rules as needed
+3. **Error Tracking**: Monitor Firebase AI errors and adjust as needed
 4. **Performance**: Track response times and optimize prompts if needed
 
 ## Support Resources

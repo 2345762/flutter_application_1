@@ -1692,12 +1692,18 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .timeout(const Duration(seconds: 10));
-    
-    // Initialize Firebase App Check with reCAPTCHA Enterprise
-    await FirebaseAppCheck.instance.activate(
-      webProvider: ReCaptchaEnterpriseProvider('6Lf3QtYtAAAAAEcDfc8k7mhTKZe9KJeeZEBGeyEn'),
-    );
-    
+
+    // Initialize Firebase App Check with reCAPTCHA Enterprise (web only)
+    if (kIsWeb) {
+      try {
+        await FirebaseAppCheck.instance.activate(
+          providerWeb: ReCaptchaEnterpriseProvider('6Lf3QtYtAAAAAEcDfc8k7mhTKZe9KJeeZEBGeyEn'),
+        );
+      } catch (e) {
+        debugPrint('App Check activation failed: $e');
+      }
+    }
+
     // Initialize timezone data
     tz_data.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('America/Santiago'));
@@ -4198,38 +4204,40 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // AI Tutor Button
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // Get correct answer
-                      final resps = pregunta['respuestas'] as List;
-                      int correctIndex = -1;
-                      for (int j = 0; j < resps.length; j++) {
-                        if (resps[j]['puntos'] == 1) {
-                          correctIndex = j;
-                          break;
+                  // AI Tutor Button (only show if explanation exists)
+                  if (pregunta['explicacion'] != null &&
+                      pregunta['explicacion'].toString().trim().isNotEmpty)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Get correct answer
+                        final resps = pregunta['respuestas'] as List;
+                        int correctIndex = -1;
+                        for (int j = 0; j < resps.length; j++) {
+                          if (resps[j]['puntos'] == 1) {
+                            correctIndex = j;
+                            break;
+                          }
                         }
-                      }
-                      final correctAnswer = correctIndex >= 0 ? resps[correctIndex]['texto'] : '';
-                      
-                      AiTutorDialog.show(
-                        context,
-                        formQuestion: pregunta['texto'] as String,
-                        correctAnswer: correctAnswer as String,
-                        theoreticalExplanation: pregunta['explicacion'] as String,
-                      );
-                    },
-                    icon: Icon(Icons.psychology_outlined, size: 18),
-                    label: Text('Preguntar al Tutor IA'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        final correctAnswer = correctIndex >= 0 ? resps[correctIndex]['texto'] : '';
+
+                        AiTutorDialog.show(
+                          context,
+                          formQuestion: pregunta['texto'] as String,
+                          correctAnswer: correctAnswer as String,
+                          theoreticalExplanation: pregunta['explicacion'] as String,
+                        );
+                      },
+                      icon: Icon(Icons.psychology_outlined, size: 18),
+                      label: Text('Preguntar al Tutor IA'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -5832,29 +5840,31 @@ class StreakResultPage extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // AI Tutor Button for streak mode
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    AiTutorDialog.show(
-                                      context,
-                                      formQuestion: answer['question'] as String,
-                                      correctAnswer: answer['correctAnswer'] as String,
-                                      theoreticalExplanation: answer['explanation'] as String,
-                                    );
-                                  },
-                                  icon: Icon(Icons.psychology_outlined, size: 14),
-                                  label: Text('Preguntar al Tutor IA'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade700,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
+                                // AI Tutor Button for streak mode (only show if explanation exists)
+                                if (answer['explanation'] != null &&
+                                    answer['explanation'].toString().trim().isNotEmpty)
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      AiTutorDialog.show(
+                                        context,
+                                        formQuestion: answer['question'] as String,
+                                        correctAnswer: answer['correctAnswer'] as String,
+                                        theoreticalExplanation: answer['explanation'] as String,
+                                      );
+                                    },
+                                    icon: Icon(Icons.psychology_outlined, size: 14),
+                                    label: Text('Preguntar al Tutor IA'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue.shade700,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                ),
                               ],
                             ),
                           const SizedBox(height: 6),
@@ -6230,29 +6240,31 @@ class ExamDetailScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // AI Tutor Button for results review
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              AiTutorDialog.show(
-                                context,
-                                formQuestion: questionData['question'] as String,
-                                correctAnswer: questionData['correctAnswer'] as String,
-                                theoreticalExplanation: questionData['explanation'] as String,
-                              );
-                            },
-                            icon: Icon(Icons.psychology_outlined, size: 14),
-                            label: Text('Preguntar al Tutor IA'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
+                          // AI Tutor Button for results review (only show if explanation exists)
+                          if (questionData['explanation'] != null &&
+                              questionData['explanation'].toString().trim().isNotEmpty)
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                AiTutorDialog.show(
+                                  context,
+                                  formQuestion: questionData['question'] as String,
+                                  correctAnswer: questionData['correctAnswer'] as String,
+                                  theoreticalExplanation: questionData['explanation'] as String,
+                                );
+                              },
+                              icon: Icon(Icons.psychology_outlined, size: 14),
+                              label: Text('Preguntar al Tutor IA'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ),
                         ],
                       ),
                     ),
