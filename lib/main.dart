@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,6 +16,7 @@ import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:lottie/lottie.dart';
 
 // =============================================================
 // SECCIÓN DE DATOS: IMPORTAR PREGUNTAS
@@ -40,6 +40,8 @@ import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
 import 'widgets/panel_estudio/user_profile_page.dart';
 import 'widgets/ai_tutor_dialog.dart';
+import 'widgets/general_ai_tutor_dialog.dart';
+import 'services/ai_tutor_service.dart';
 
 // =============================================================
 // UTILIDADES DE ZONA HORARIA CHILENA
@@ -343,6 +345,255 @@ class PartialExamProgress {
 class StorageService {
   static const String _streakKey = 'streak_data';
   static const String _globalStreakKey = 'global_streak_data';
+  static bool _isSyncing = false;
+  static const int maxDailyAiMessages = 3;
+
+  /// Returns the number of remaining AI tutor messages available for today (0 to 3).
+  static Future<int> getRemainingDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      int localCount = 0;
+      final cachedJsonStr = prefs.getString(localKey);
+      if (cachedJsonStr != null) {
+        final cached = json.decode(cachedJsonStr) as Map<String, dynamic>;
+        if (cached['date'] == todayStr) {
+          localCount = cached['count'] as int? ?? 0;
+        }
+      }
+
+      // Check Firestore for cross-device consistency
+      try {
+        final doc = await FirebaseFirestore.instance.collection('user_summaries').doc(userName).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          if (data.containsKey('aiDailyUsage')) {
+            final aiUsage = data['aiDailyUsage'] as Map<String, dynamic>;
+            if (aiUsage['date'] == todayStr) {
+              final remoteCount = aiUsage['count'] as int? ?? 0;
+              final effectiveCount = remoteCount > localCount ? remoteCount : localCount;
+              await prefs.setString(localKey, json.encode({'date': todayStr, 'count': effectiveCount}));
+              return (maxDailyAiMessages - effectiveCount).clamp(0, maxDailyAiMessages);
+            } else {
+              // Different date on remote -> reset counter for today
+              await prefs.setString(localKey, json.encode({'date': todayStr, 'count': 0}));
+              return maxDailyAiMessages;
+            }
+          }
+        }
+      } catch (e) {
+        print("Note: Firestore AI usage fetch fallback to local: $e");
+      }
+
+      return (maxDailyAiMessages - localCount).clamp(0, maxDailyAiMessages);
+    } catch (e) {
+      print("Error in getRemainingDailyAiMessages: $e");
+      return maxDailyAiMessages;
+    }
+  }
+
+  /// Checks if the user is allowed to send an AI message today.
+  static Future<bool> canSendAiMessage(String userName) async {
+    final remaining = await getRemainingDailyAiMessages(userName);
+    return remaining > 0;
+  }
+
+  /// Increments today's AI message counter in both Firestore and local storage.
+  /// Returns the updated count of remaining messages.
+  static Future<int> incrementDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      int currentCount = 0;
+      final cachedJsonStr = prefs.getString(localKey);
+      if (cachedJsonStr != null) {
+        final cached = json.decode(cachedJsonStr) as Map<String, dynamic>;
+        if (cached['date'] == todayStr) {
+          currentCount = cached['count'] as int? ?? 0;
+        }
+      }
+
+      final newCount = currentCount + 1;
+      await prefs.setString(localKey, json.encode({'date': todayStr, 'count': newCount}));
+
+      try {
+        final docRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+        await docRef.set({
+          'aiDailyUsage': {
+            'date': todayStr,
+            'count': newCount,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }
+        }, SetOptions(merge: true));
+      } catch (e) {
+        print("Error syncing AI daily count to Firestore: $e");
+      }
+
+      return (maxDailyAiMessages - newCount).clamp(0, maxDailyAiMessages);
+    } catch (e) {
+      print("Error in incrementDailyAiMessages: $e");
+      return 0;
+    }
+  }
+
+  /// Bidirectional synchronization between local SharedPreferences and Cloud Firestore.
+  /// Seamlessly synchronizes streak progress, lives, recharge timers, and study records across devices.
+  static Future<void> syncWithFirebase() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userName = prefs.getString('userName');
+      if (userName == null || userName.isEmpty) return;
+
+      final now = tz.TZDateTime.now(tz.local);
+      final nowChile = _toChileanTimeAsDateTime(now);
+      final today = _getChileanDate();
+
+      final userDocRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+      final userDoc = await userDocRef.get();
+
+      if (!userDoc.exists) {
+        // Document doesn't exist yet, push current local data or defaults
+        await _batchUpdateFirebase(userName);
+        return;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // --- 1. LIVES SYNCHRONIZATION ---
+      List<LifeData> syncedLives = [];
+      if (userData.containsKey('livesData')) {
+        final livesDataJson = userData['livesData'] as List<dynamic>;
+        for (var lJson in livesDataJson) {
+          syncedLives.add(LifeData.fromJson(lJson as Map<String, dynamic>));
+        }
+      } else if (userData.containsKey('globalLives')) {
+        final gLives = userData['globalLives'] as int? ?? 3;
+        syncedLives = List.generate(3, (idx) => LifeData(isAvailable: idx < gLives));
+      }
+
+      while (syncedLives.length < 3) {
+        syncedLives.add(LifeData(isAvailable: true));
+      }
+      if (syncedLives.length > 3) {
+        syncedLives = syncedLives.sublist(0, 3);
+      }
+
+      // Check recharge timers against current Chilean time
+      for (int i = 0; i < syncedLives.length; i++) {
+        if (!syncedLives[i].isAvailable && syncedLives[i].rechargeTime != null) {
+          if (nowChile.isAfter(syncedLives[i].rechargeTime!) ||
+              nowChile.isAtSameMomentAs(syncedLives[i].rechargeTime!)) {
+            syncedLives[i] = LifeData(isAvailable: true);
+          }
+        }
+      }
+
+      final globalStreak = GlobalStreakData(lives: syncedLives);
+      await saveGlobalStreakData(globalStreak);
+
+      // --- 2. STREAK SYNCHRONIZATION ---
+      StreakData? firestoreStreak;
+      if (userData.containsKey('globalStreak')) {
+        firestoreStreak = StreakData.fromJson(userData['globalStreak'] as Map<String, dynamic>);
+      }
+
+      final localStreak = await getStreakData();
+      StreakData workingStreak = firestoreStreak ?? localStreak ?? StreakData(
+        streakDays: userData['current_streak'] as int? ?? 0,
+        lastExamDate: nowChile,
+        totalExams: userData['totalExams'] as int? ?? 0,
+        maxStreakDays: userData['max_streak'] as int? ?? 0,
+        dailyExamsPassed: 0,
+        lastDailyResetDate: today,
+        lastPassedExamDate: null,
+      );
+
+      if (localStreak != null && firestoreStreak != null) {
+        if (localStreak.lastPassedExamDate != null && firestoreStreak.lastPassedExamDate != null) {
+          if (localStreak.lastPassedExamDate!.isAfter(firestoreStreak.lastPassedExamDate!)) {
+            workingStreak = localStreak;
+          } else {
+            workingStreak = firestoreStreak;
+          }
+        } else if (localStreak.lastPassedExamDate != null) {
+          workingStreak = localStreak;
+        } else {
+          workingStreak = firestoreStreak;
+        }
+      }
+
+      // Check streak reset condition (> 1 calendar day skipped)
+      if (workingStreak.lastPassedExamDate != null) {
+        final lastPassedDate = DateTime(
+          workingStreak.lastPassedExamDate!.year,
+          workingStreak.lastPassedExamDate!.month,
+          workingStreak.lastPassedExamDate!.day,
+        );
+        final difference = today.difference(lastPassedDate).inDays;
+        if (difference > 1) {
+          workingStreak = StreakData(
+            streakDays: 0,
+            lastExamDate: workingStreak.lastExamDate,
+            totalExams: workingStreak.totalExams,
+            maxStreakDays: workingStreak.maxStreakDays,
+            dailyExamsPassed: 0,
+            lastDailyResetDate: today,
+            lastPassedExamDate: null,
+          );
+        }
+      }
+
+      await saveStreakData(workingStreak);
+
+      // --- 3. EXAM HISTORY SYNCHRONIZATION ---
+      if (userData.containsKey('examHistory')) {
+        final firebaseHistory = userData['examHistory'] as List<dynamic>;
+        await prefs.setString(_examHistoryKey, json.encode(firebaseHistory));
+      }
+
+      // --- 4. STUDY PROGRESS SYNCHRONIZATION ---
+      if (userData.containsKey('studyProgress')) {
+        try {
+          final studyProgress = userData['studyProgress'] as Map<String, dynamic>;
+          final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+          final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+          for (var entry in studyProgress.entries) {
+            allProgress[entry.key] = entry.value;
+          }
+          await prefs.setString(_partialProgressKey, json.encode(allProgress));
+        } catch (e) {
+          print("Error updating study progress during sync: $e");
+        }
+      }
+
+      // --- 5. PERSIST SYNCHRONIZED STATE BACK TO FIRESTORE ---
+      final examHistoryList = prefs.getString(_examHistoryKey) ?? '[]';
+      final List<dynamic> parsedHistory = json.decode(examHistoryList);
+      final passedCount = parsedHistory.where((e) => (e['passed'] as bool? ?? true)).length;
+
+      await userDocRef.set({
+        'livesData': syncedLives.map((l) => l.toJson()).toList(),
+        'globalLives': syncedLives.where((l) => l.isAvailable).length,
+        'globalStreak': workingStreak.toJson(),
+        'current_streak': workingStreak.streakDays,
+        'max_streak': workingStreak.maxStreakDays,
+        'totalExams': workingStreak.totalExams,
+        'passedExams': passedCount,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+    } catch (e) {
+      print("Error in StorageService.syncWithFirebase: $e");
+    } finally {
+      _isSyncing = false;
+    }
+  }
 
   /// Firebase sync with retry mechanism
   /// Attempts to sync data to Firebase with automatic retries on failure
@@ -417,6 +668,7 @@ class StorageService {
       
       userData['examHistory'] = examHistory.map((exam) => exam.toJson()).toList();
       userData['totalExams'] = examHistory.length;
+      userData['passedExams'] = examHistory.where((exam) => exam.passed).length;
       
       Map<String, dynamic> studyProgress = {};
       for (var entry in partialProgress.entries) {
@@ -563,7 +815,8 @@ class StorageService {
       final lastPassedDate = DateTime(currentStreak.lastPassedExamDate!.year, currentStreak.lastPassedExamDate!.month, currentStreak.lastPassedExamDate!.day);
       final difference = today.difference(lastPassedDate).inDays;
       
-      if (difference >= 1) {
+      // User only skipped if more than 1 day has passed (e.g., studied Mon, today Wed = difference 2)
+      if (difference > 1) {
         // User skipped 1 or more days - reset streak to 0
         final resetStreak = StreakData(
           streakDays: 0,
@@ -646,7 +899,7 @@ class StorageService {
       final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
       final difference = today.difference(lastPassedDate).inDays;
       
-      if (difference >= 1) {
+      if (difference > 1) {
         // User skipped 1 or more days - reset streak to 0
         workingStreak = StreakData(
           streakDays: 0,
@@ -693,11 +946,10 @@ class StorageService {
       // This allows building consecutive day streaks (Day 1 → Day 2 → Day 3, etc.)
       if (workingStreak.lastPassedExamDate != null) {
         final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
-        final currentDate = DateTime(now.year, now.month, now.day);
         
-        if (currentDate.isAfter(lastPassedDate)) {
-          // Passed exam on a new day - increment streak
-          newStreakDays++;
+        if (today.isAfter(lastPassedDate)) {
+          // Passed exam on a new calendar day - increment streak
+          newStreakDays = workingStreak.streakDays + 1;
           
           // Update max streak if needed
           if (newStreakDays > newMaxStreak) {
@@ -823,6 +1075,21 @@ class StorageService {
         firebaseHistory.add(result.toJson());
         // Only increment exam count if it's not a duplicate
         userData['totalExams'] = (userData['totalExams'] as int? ?? 0) + 1;
+        if (result.passed) {
+          userData['passedExams'] = (userData['passedExams'] as int? ?? 0) + 1;
+        }
+      }
+
+      // Also record exam in user subcollection for audit and fast per-exam lookups
+      try {
+        await FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName)
+            .collection('exams')
+            .doc(result.id)
+            .set(result.toJson(), SetOptions(merge: true));
+      } catch (e) {
+        print("Error saving exam to subcollection: $e");
       }
       
       // Keep only last 50 exams in Firebase as well
@@ -1234,29 +1501,12 @@ class StorageService {
               'lastUpdated': FieldValue.serverTimestamp(),
             });
             
-            return true;
+            return lives;
           });
           
-          // If transaction succeeded, update local storage
-          if (result == true) {
-            final globalStreak = await getGlobalStreakData();
-            final rechargedStreak = await _rechargeGlobalLivesIfNeeded(globalStreak);
-            
-            // Deduct one life locally to match Firebase
-            List<LifeData> updatedLives = List.from(rechargedStreak.lives);
-            for (int i = 0; i < updatedLives.length; i++) {
-              if (updatedLives[i].isAvailable) {
-                final now = tz.TZDateTime.now(tz.local);
-                final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
-                updatedLives[i] = LifeData(
-                  isAvailable: false,
-                  rechargeTime: rechargeTime,
-                );
-                break;
-              }
-            }
-            
-            final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
+          // If transaction succeeded, update local storage with exact committed lives
+          if (result is List<LifeData>) {
+            final updatedGlobalStreak = GlobalStreakData(lives: result);
             await saveGlobalStreakData(updatedGlobalStreak);
           }
           
@@ -1524,7 +1774,7 @@ class StorageService {
       
       for (var doc in usersSnapshot.docs) {
         try {
-          final userData = doc.data() as Map<String, dynamic>;
+          final userData = doc.data();
           final userId = doc.id;
           
           List<LifeData> normalizedLives = [];
@@ -1581,39 +1831,38 @@ class StorageService {
   }
 
   // Anti-cheat: Check for rage quit in Streak Mode
+  // Note: A life is already deducted when starting the exam, so we only clear the partial progress here
   static Future<void> checkForRageQuit() async {
     try {
       final allProgress = await getAllPartialProgress();
-      
+
       for (var entry in allProgress.entries) {
         final progress = entry.value;
-        
+
         // Only check streak mode progress
         if (progress.mode == 'streak' && progress.reachedFiftyPercent) {
           // User reached 50% but didn't finish - treat as failure
-          print("Rage quit detected in Streak Mode for ${progress.subject}. Deducting a life.");
-          
-          // Use atomic deduction for consistency
-          await deductLifeAtomically();
-          
+          print("Rage quit detected in Streak Mode for ${progress.subject}. Clearing partial progress.");
+
           // Clear the partial progress to prevent repeated deductions (only for streak mode)
+          // Note: Life was already deducted when exam started, so we don't deduct again
           await clearPartialProgress(progress.subject, mode: 'streak');
-          
+
           // Sync to Firebase with explicit streak values
           try {
             SharedPreferences prefsUser = await SharedPreferences.getInstance();
             String userName = prefsUser.getString('userName') ?? "Unknown";
-            
+
             var userDoc = await FirebaseFirestore.instance
                 .collection('user_summaries')
                 .doc(userName)
                 .get();
-            
+
             Map<String, dynamic> userData = {};
             if (userDoc.exists) {
               userData = userDoc.data() as Map<String, dynamic>;
             }
-            
+
             // Also sync current streak data
             final streakData = await getStreakData();
             if (streakData != null) {
@@ -1621,13 +1870,13 @@ class StorageService {
               userData['max_streak'] = streakData.maxStreakDays;
               userData['globalStreak'] = streakData.toJson();
             }
-            
+
             // Sync updated lives
             final globalStreak = await getGlobalStreakData();
             userData['globalLives'] = globalStreak.availableLives;
             userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
             userData['lastUpdated'] = FieldValue.serverTimestamp();
-            
+
             // Use batch update for consistency
             await _batchUpdateFirebase(userName);
           } catch (e) {
@@ -1693,16 +1942,8 @@ void main() async {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .timeout(const Duration(seconds: 10));
 
-    // Initialize Firebase App Check with reCAPTCHA Enterprise (web only)
-    if (kIsWeb) {
-      try {
-        await FirebaseAppCheck.instance.activate(
-          providerWeb: ReCaptchaEnterpriseProvider('6Lf3QtYtAAAAAEcDfc8k7mhTKZe9KJeeZEBGeyEn'),
-        );
-      } catch (e) {
-        debugPrint('App Check activation failed: $e');
-      }
-    }
+    // Firebase App Check disabled for development to avoid localhost issues
+    // Re-enable for production with proper configuration
 
     // Initialize timezone data
     tz_data.initializeTimeZones();
@@ -1715,6 +1956,7 @@ void main() async {
     // Check for streak reset and life recharge based on time (00:00 AM Chilean time)
     if (isLoggedIn) {
       await StorageService.normalizeUserData(); // Normalize user data for all users
+      await StorageService.syncWithFirebase(); // Stateful synchronization with Firestore
       await StorageService.checkAndResetStreakIfNeeded();
       await StorageService.checkAndRechargeLivesIfNeeded();
     }
@@ -1968,7 +2210,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     _controller.forward();
     
     _validarYContinuar();
-    StorageService.loadFromFirebase(); // Load streak data from Firebase
+    StorageService.syncWithFirebase(); // Load and synchronize streak and lives data from Firebase
     StorageService.normalizeUserData(); // Normalize user data for all users
     StorageService.checkForRageQuit(); // Check for rage quit (anti-cheat)
     StorageService.checkAndRechargeLivesIfNeeded(); // Check and recharge lives based on time
@@ -2711,6 +2953,7 @@ class _MainMenuState extends State<MainMenu> {
   List<ExamResult> _examHistory = [];
   Map<String, PartialExamProgress> _allPartialProgress = {};
   String _userName = '';
+  String _rawUserName = '';
 
   @override
   void initState() {
@@ -2727,6 +2970,7 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _loadStreakData() async {
+    await StorageService.syncWithFirebase();
     final streakData = await StorageService.getStreakData();
     final history = await StorageService.getExamHistory();
     final allPartialProgress = await StorageService.getPracticeModeProgress(); // Only load practice mode progress
@@ -2738,6 +2982,7 @@ class _MainMenuState extends State<MainMenu> {
         _globalStreakData = streakData;
         _examHistory = history;
         _allPartialProgress = allPartialProgress;
+        _rawUserName = rawUserName;
         _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
     }
@@ -2827,17 +3072,6 @@ class _MainMenuState extends State<MainMenu> {
 
   int get _rachaActivaMax {
     return _globalStreakData?.streakDays ?? 0;
-  }
-
-  double? get _mejorResultadoPct {
-    if (_examHistory.isEmpty) return null;
-    double mejor = 0;
-    for (final e in _examHistory) {
-      if (e.totalQuestions <= 0) continue;
-      final pct = (e.score / e.totalQuestions) * 100;
-      if (pct > mejor) mejor = pct;
-    }
-    return mejor;
   }
 
   String _modoLabel(String modo) {
@@ -2990,10 +3224,10 @@ class _MainMenuState extends State<MainMenu> {
     materiasIniciadas: _materiasIniciadas,
     totalMaterias: widget.materias.length,
     rachaActivaMax: _rachaActivaMax,
-    mejorResultadoLabel: _mejorResultadoPct != null ? '${_mejorResultadoPct!.round()}%' : '—',
     textColor: textColor,
     secondaryTextColor: secondaryTextColor,
     onStreakTap: () => _mostrarResumenStreak(context),
+    onAiTap: () => _mostrarDialogoIA(context),
   );
 
   Widget buildSubjectCard(Map<String, dynamic> materia) {
@@ -3112,22 +3346,22 @@ class _MainMenuState extends State<MainMenu> {
     final globalStreak = await StorageService.getGlobalStreakData();
     final streakData = await StorageService.getStreakData();
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (context.mounted) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: esModoOscuro ? AppColors.darkCard.withOpacity(0.95) : Colors.white.withOpacity(0.95),
+          backgroundColor: esModoOscuro ? AppColors.darkCard : AppColors.lightCard,
           title: Row(
             children: [
-              const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+              const Icon(Icons.local_fire_department, color: Color(0xFFFF7A1A), size: 28),
               const SizedBox(width: 12),
               Text(
-                "Resumen de Rachas", 
+                "Resumen de Rachas",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: esModoOscuro ? Colors.white : Colors.black,
+                  color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
                 ),
               ),
             ],
@@ -3135,110 +3369,218 @@ class _MainMenuState extends State<MainMenu> {
           content: streakData == null
               ? Text(
                   "Aún no has completado exámenes de racha.",
-                  style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+                  style: TextStyle(color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                 )
               : SingleChildScrollView(
                   child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Global streak display
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      color: esModoOscuro ? AppColors.darkCard.withOpacity(0.8) : Colors.grey[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Global streak display with animated fire
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: esModoOscuro ? AppColors.darkBackground.withValues(alpha: 0.5) : AppColors.lightBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            width: 1,
+                          ),
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.local_fire_department, color: Colors.orange, size: 24),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Racha Global: ${streakData.streakDays} días",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold, 
-                                    fontSize: 16,
-                                    color: esModoOscuro ? Colors.white : Colors.black,
+                            // Animated fire badge
+                            SizedBox(
+                              width: 80,
+                              height: 80,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Glow effect
+                                  Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: [
+                                          const Color(0xFFFFC773).withValues(alpha: 0.4),
+                                          const Color(0xFFFF8A3D).withValues(alpha: 0.22),
+                                          const Color(0xFFFF8A3D).withValues(alpha: 0.0),
+                                        ],
+                                        stops: const [0.0, 0.45, 1.0],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  // Animated fire
+                                  Lottie.asset(
+                                    'assets/animations/streak_fire.json',
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.contain,
+                                    animate: true,
+                                    repeat: true,
+                                    errorBuilder: (context, error, stackTrace) => Icon(
+                                      Icons.local_fire_department,
+                                      size: 60,
+                                      color: const Color(0xFFFF7A1A),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Racha Máxima: ${streakData.maxStreakDays} días",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 16),
+                            // Streak info
+                            Text(
+                              "${streakData.streakDays} días",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFFFB067),
+                              ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Total Exámenes Aprobados: ${streakData.totalExams}",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              "Racha Global",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Divider(
+                              color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            ),
+                            const SizedBox(height: 12),
+                            // Stats
+                            _buildStreakStat(
+                              icon: Icons.emoji_events,
+                              iconColor: Colors.amber,
+                              label: "Racha Máxima",
+                              value: "${streakData.maxStreakDays} días",
+                              esModoOscuro: esModoOscuro,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildStreakStat(
+                              icon: Icons.check_circle,
+                              iconColor: Colors.green,
+                              label: "Total Exámenes Aprobados",
+                              value: "${streakData.totalExams}",
+                              esModoOscuro: esModoOscuro,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    // Global lives display with improved design
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: esModoOscuro ? Colors.grey.shade800.withOpacity(0.6) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            "Vidas Disponibles", 
-                            style: TextStyle(
-                              fontSize: 14, 
-                              fontWeight: FontWeight.bold,
-                              color: esModoOscuro ? Colors.white : Colors.black,
+                      // Global lives display with improved design
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: esModoOscuro ? AppColors.darkBackground.withValues(alpha: 0.5) : AppColors.lightBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.favorite,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Vidas Disponibles",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: List.generate(3, (index) {
-                              final life = globalStreak.lives[index];
-                              return _buildImprovedLifeDisplay(life, index, esModoOscuro);
-                            }),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(3, (index) {
+                                final life = globalStreak.lives[index];
+                                return _buildImprovedLifeDisplay(life, index, esModoOscuro);
+                              }),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
                 "Cerrar",
-                style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+                style: TextStyle(
+                  color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
       );
     }
+  }
+
+  Widget _buildStreakStat({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required bool esModoOscuro,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _mostrarDialogoIA(BuildContext context) {
+    // Combine all subject data for the general AI tutor
+    final allSubjectData = <Map<String, Object>>[];
+    for (final materia in widget.materias) {
+      final pool = materia['pool'] as List<Map<String, Object>>;
+      allSubjectData.addAll(pool);
+    }
+
+    GeneralAiTutorDialog.show(
+      context,
+      aiTutorService: AiTutorService(),
+      subjectData: allSubjectData,
+      userName: _rawUserName.isNotEmpty ? _rawUserName : null,
+    );
   }
 
   Widget _buildImprovedLifeDisplay(LifeData life, int index, bool esModoOscuro) {
@@ -3509,8 +3851,6 @@ class _MainMenuState extends State<MainMenu> {
             ),
           ),
         ).then((result) {
-          // Check for rage quit (anti-cheat) when returning from streak quiz
-          StorageService.checkForRageQuit();
           // Refresh data when returning from streak quiz (always refresh)
           _loadStreakData();
         });
@@ -3862,6 +4202,7 @@ class _QuizPageState extends State<QuizPage> {
       allQuestions.add({
         'question': preguntas[i]['texto'],
         'explanation': preguntas[i]['explicacion'] ?? '',
+        'imagenes': preguntas[i]['imagenes'],
         'userAnswer': userAnswerIndex != null ? resps[userAnswerIndex]['texto'] : 'Sin respuesta',
         'correctAnswer': correctIndex >= 0 ? resps[correctIndex]['texto'] : '',
         'isCorrect': userAnswerIndex != null && resps[userAnswerIndex]['puntos'] == 1,
@@ -4228,7 +4569,7 @@ class _QuizPageState extends State<QuizPage> {
                         );
                       },
                       icon: Icon(Icons.psychology_outlined, size: 18),
-                      label: Text('Preguntar al Tutor IA'),
+                      label: Text('¿Alguna duda? Consulta aquí'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
                         foregroundColor: Colors.white,
@@ -4602,6 +4943,20 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                             ),
                           ],
+                          if (pregunta.containsKey('imagenes') && pregunta['imagenes'] != null) ...[
+                            const SizedBox(height: 8),
+                            Column(
+                              children: List<String>.from(pregunta['imagenes'] as List).map((ruta) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: ZoomableImage(
+                                    imagePath: ruta,
+                                    onZoomChanged: (_) {},
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                           if (pregunta.containsKey('explicacion') && pregunta['explicacion'] != null && pregunta['explicacion'].toString().isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -4704,7 +5059,27 @@ class _ZoomableImageState extends State<ZoomableImage> {
             scaleEnabled: _zoomHabilitado,
             minScale: 1.0,
             maxScale: 3.0,
-            child: Image.asset(widget.imagePath, fit: BoxFit.contain),
+            child: Image.asset(
+                widget.imagePath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  padding: const EdgeInsets.all(12),
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.broken_image, color: Colors.amber, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Imagen no disponible (${widget.imagePath})',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ),
         ),
         
@@ -5425,6 +5800,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
           incorrect.add({
             'question': preguntas[i]['texto'],
             'explanation': preguntas[i]['explicacion'] ?? '',
+            'imagenes': preguntas[i]['imagenes'],
             'userAnswer': resps[respuestasUsuario[i]!]['texto'],
             'correctAnswer': resps.firstWhere((r) => r['puntos'] == 1)['texto'],
           });
@@ -5469,6 +5845,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
       allQuestions.add({
         'question': preguntas[i]['texto'],
         'explanation': preguntas[i]['explicacion'] ?? '',
+        'imagenes': preguntas[i]['imagenes'],
         'userAnswer': userAnswerIndex != null ? resps[userAnswerIndex]['texto'] : 'Sin respuesta',
         'correctAnswer': correctIndex >= 0 ? resps[correctIndex]['texto'] : '',
         'isCorrect': userAnswerIndex != null && resps[userAnswerIndex]['puntos'] == 1,
@@ -5558,11 +5935,11 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        if (preguntas[preguntaActual].containsKey('imagenes'))
+                        if (preguntas[preguntaActual].containsKey('imagenes') && preguntas[preguntaActual]['imagenes'] != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 20),
                             child: Column(
-                              children: (preguntas[preguntaActual]['imagenes'] as List<String>).map((ruta) {
+                              children: List<String>.from(preguntas[preguntaActual]['imagenes'] as List).map((ruta) {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 15.0),
                                   child: ZoomableImage(
@@ -5812,6 +6189,21 @@ class StreakResultPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
+                          if (answer['imagenes'] != null && (answer['imagenes'] as List).isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Column(
+                                children: List<String>.from(answer['imagenes'] as List).map((ruta) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: ZoomableImage(
+                                      imagePath: ruta,
+                                      onZoomChanged: (_) {},
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           if (answer['explanation'] != null && answer['explanation'].toString().isNotEmpty)
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5853,7 +6245,7 @@ class StreakResultPage extends StatelessWidget {
                                       );
                                     },
                                     icon: Icon(Icons.psychology_outlined, size: 14),
-                                    label: Text('Preguntar al Tutor IA'),
+                                    label: Text('¿Alguna duda? Pregunta aqui'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.blue.shade700,
                                       foregroundColor: Colors.white,
@@ -6205,6 +6597,21 @@ class ExamDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (questionData['imagenes'] != null && (questionData['imagenes'] as List).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Column(
+                        children: List<String>.from(questionData['imagenes'] as List).map((ruta) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: ZoomableImage(
+                              imagePath: ruta,
+                              onZoomChanged: (_) {},
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   if (questionData['explanation'] != null && questionData['explanation'].toString().isNotEmpty)
                     Container(
@@ -6240,8 +6647,9 @@ class ExamDetailScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // AI Tutor Button for results review (only show if explanation exists)
-                          if (questionData['explanation'] != null &&
+                          // AI Tutor Button for results review (only show on incorrectly answered questions)
+                          if (!questionData['isCorrect'] &&
+                              questionData['explanation'] != null &&
                               questionData['explanation'].toString().trim().isNotEmpty)
                             ElevatedButton.icon(
                               onPressed: () {
@@ -6253,7 +6661,7 @@ class ExamDetailScreen extends StatelessWidget {
                                 );
                               },
                               icon: Icon(Icons.psychology_outlined, size: 14),
-                              label: Text('Preguntar al Tutor IA'),
+                              label: Text('Envia tu pregunta aqui'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
                                 foregroundColor: Colors.white,

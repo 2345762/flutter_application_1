@@ -6,10 +6,10 @@ class ProgressSummary extends StatelessWidget {
   final int materiasIniciadas;
   final int totalMaterias;
   final int rachaActivaMax;
-  final String mejorResultadoLabel;
   final Color textColor;
   final Color secondaryTextColor;
   final VoidCallback onStreakTap;
+  final VoidCallback? onAiTap;
   final int dailyExamsPassed; // New parameter for daily progress
 
   const ProgressSummary({
@@ -17,20 +17,20 @@ class ProgressSummary extends StatelessWidget {
     required this.materiasIniciadas,
     required this.totalMaterias,
     required this.rachaActivaMax,
-    required this.mejorResultadoLabel,
     required this.textColor,
     required this.secondaryTextColor,
     required this.onStreakTap,
+    this.onAiTap,
     this.dailyExamsPassed = 0, // Default to 0
   });
 
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
-    // Debe verse un poco más grande que la llama del header (72/79/92).
+    // Smaller fire badge for the lower section
     final double streakBadgeSize = screenWidth >= 600
-        ? 100.0
-        : (screenWidth <= 340 ? 78.0 : 86.0);
+        ? 70.0
+        : (screenWidth <= 340 ? 55.0 : 60.0);
 
     // Calculate daily progress display (max 1/1)
     final dailyProgress = dailyExamsPassed > 1 ? 1 : dailyExamsPassed;
@@ -63,22 +63,67 @@ class ProgressSummary extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Semantics(
-            label: mejorResultadoLabel == '—'
-                ? 'Mejor resultado: sin intentos'
-                : 'Mejor resultado: $mejorResultadoLabel',
-            excludeSemantics: true,
-            child: _StatChip(
-              value: mejorResultadoLabel,
-              label: 'MEJOR',
+        if (onAiTap != null) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: _AiButton(
+              onTap: onAiTap!,
               textColor: textColor,
               secondaryTextColor: secondaryTextColor,
             ),
           ),
-        ),
+        ],
       ],
+    );
+  }
+}
+
+class _AiButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final Color textColor;
+  final Color secondaryTextColor;
+
+  const _AiButton({
+    required this.onTap,
+    required this.textColor,
+    required this.secondaryTextColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        decoration: BoxDecoration(
+          color: textColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: textColor.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.psychology_outlined,
+              size: 22,
+              color: textColor,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'TUTOR IA',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.6,
+                color: secondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -113,7 +158,7 @@ class _StatChip extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: textColor,
             ),
