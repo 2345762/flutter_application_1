@@ -92,10 +92,6 @@ void main() {
     });
 
     test('should accept valid inputs without throwing guard exceptions', () async {
-      // This test verifies that the guards don't reject valid inputs
-      // Note: This will still throw because we don't have Firebase properly configured/mocked
-      // but it should NOT throw a guard exception (empty doubt, too long, etc.)
-      
       try {
         await aiTutorService.askTutor(
           studentDoubt: 'Valid doubt about the question',
@@ -103,27 +99,37 @@ void main() {
           correctAnswer: 'Test answer',
           theoreticalExplanation: 'Test theory explanation',
         );
-        // If we get here without Firebase setup, something is wrong
-        fail('Expected Firebase-related error, not success');
+        fail('Expected Firebase-related error in test environment, not success');
       } on AiTutorException catch (e) {
-        // Should not be a guard-related error
-        expect(
-          e.message,
-          isNot(contains('Por favor, escribe tu duda')),
-        );
-        expect(
-          e.message,
-          isNot(contains('Tu duda es muy larga')),
-        );
-        expect(
-          e.message,
-          isNot(contains('No hay explicación teórica')),
-        );
+        expect(e.message, isNot(contains('Por favor, escribe tu duda')));
+        expect(e.message, isNot(contains('Tu duda es muy larga')));
+        expect(e.message, isNot(contains('No hay explicación teórica')));
       } catch (e) {
-        // Expected to fail due to Firebase not being configured in test environment
-        // But should not fail due to guard conditions
         expect(e, isNot(isA<AiTutorException>()));
       }
+    });
+
+    test('askGeneralTutor should throw when question is empty or whitespace', () async {
+      expect(
+        () => aiTutorService.askGeneralTutor(studentQuestion: '   '),
+        throwsA(isA<AiTutorException>().having(
+          (e) => e.message,
+          'message',
+          'Por favor, escribe tu pregunta antes de enviar.',
+        )),
+      );
+    });
+
+    test('askGeneralTutor should throw when question exceeds max length', () async {
+      final longQuestion = 'q' * 1001;
+      expect(
+        () => aiTutorService.askGeneralTutor(studentQuestion: longQuestion),
+        throwsA(isA<AiTutorException>().having(
+          (e) => e.message,
+          'message',
+          contains('Tu pregunta es muy larga'),
+        )),
+      );
     });
   });
 }

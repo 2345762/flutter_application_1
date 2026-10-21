@@ -91,7 +91,7 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'ENCARGADO DE OPERACIONES DE VUELO',
+                    'Estudiante EOV',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

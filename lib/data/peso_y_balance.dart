@@ -15,8 +15,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
     "respuestas": [
       {"texto": "A.- 908.8 pulgadas", "puntos": 0},
-      {"texto": "B.- 909.6 pulgadas", "puntos": 1},
-      {"texto": "C.- 910.7 pulgadas", "puntos": 0}
+      {"texto": "B.- 909.6 pulgadas", "puntos": 0},
+      {"texto": "C.- 910.7 pulgadas", "puntos": 1}
     ]
   },
   {
@@ -24,8 +24,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-3 (Figuras 76), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-3 el resultado correcto es 28.9% MAC.",
     "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
     "respuestas": [
-      {"texto": "A.- 27.8% МАС.", "puntos": 0},
-      {"texto": "B.- 28.9% MAC.", "puntos": 1},
+      {"texto": "A.- 27.8% МАС.", "puntos": 1},
+      {"texto": "B.- 28.9% MAC.", "puntos": 0},
       {"texto": "C.- 29.1% МАС.", "puntos": 0}
     ]
   },
@@ -44,7 +44,7 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) En la figura correspondiente a la distribución WT-9, toma los pesos de cada estación/compartimiento. 2) Lleva cada peso a la tabla/gráfico de momentos de las Figuras 77, 79 y 80 y obtén su índice. 3) Suma todos los índices parciales, junto con el índice básico aplicable. 4) El índice total obtenido para WT-9 corresponde a 169.755,2 de índice.",
     "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
     "respuestas": [
-      {"texto": "A.- 169.755,2 Índice", "puntos": 1},
+      {"texto": "A.- 169.754,8 Índice", "puntos": 1},
       {"texto": "B.- 158.797,9 Índice", "puntos": 0},
       {"texto": "C.- 186.565,5 Índice", "puntos": 0}
     ]
@@ -54,9 +54,9 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) En la figura de distribución de carga indicada para WT-11 (Figuras 78), identifica los pesos y momentos/índices de la condición. 2) Suma los índices parciales para obtener el índice total de la aeronave cargada. 3) En las Figuras 79 y 80 cruza el peso total con el índice total. 4) Desde la intersección, lee el CG expresado en porcentaje de MAC; para WT-11 el resultado correcto es 26.8% MAC.",
     "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
     "respuestas": [
-      {"texto": "A.- 26.8% МАС.", "puntos": 1},
+      {"texto": "A.- 26.8% МАС.", "puntos": 0},
       {"texto": "B.- 27.5% МАС.", "puntos": 0},
-      {"texto": "C.- 28.6% МАС.", "puntos": 0}
+      {"texto": "C.- 28.6% МАС.", "puntos": 1}
     ]
   },
   {
@@ -65,8 +65,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "imagenes": ["assets/figura76yfigura77yfigura78.jpg","assets/figura79.jpg","assets/figura80.jpg"],
     "respuestas": [
       {"texto": "A.- 30.1% МАС.", "puntos": 0},
-      {"texto": "B.- 29.5% МАС.", "puntos": 0},
-      {"texto": "C.- 31.5% МАС.", "puntos": 1}
+      {"texto": "B.- 29.4% МАС.", "puntos": 1},
+      {"texto": "C.- 31.5% МАС.", "puntos": 0}
     ]
   },
   {
@@ -75,8 +75,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
     "respuestas": [
       {"texto": "A.- 18% MAC.", "puntos": 0},
-      {"texto": "B.- 20% MAC.", "puntos": 1},
-      {"texto": "C.- 22% MAC.", "puntos": 0}
+      {"texto": "B.- 20% MAC.", "puntos": 0},
+      {"texto": "C.- 22% MAC.", "puntos": 1}
     ]
   },
   {
@@ -84,8 +84,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) Busca la condición de operación A-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 45, 46 y 47, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para A-4 corresponde 22% MAC.",
     "imagenes": ["assets/figura44yfigura45.jpg", "assets/figura46.jpg", "assets/figura47.jpg"],
     "respuestas": [
-      {"texto": "A.- 26% MAC.", "puntos": 0},
-      {"texto": "B.- 22% MAC.", "puntos": 1},
+      {"texto": "A.- 26% MAC.", "puntos": 1},
+      {"texto": "B.- 22% MAC.", "puntos": 0},
       {"texto": "C.- 18% MAC.", "puntos": 0}
     ]
   },
@@ -115,8 +115,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
     "respuestas": [
       {"texto": "A.- 4 ANU.", "puntos": 0},
-      {"texto": "B.- 4-1/2 ΑNU.", "puntos": 0},
-      {"texto": "C.- 4-3/4 ANU.", "puntos": 1}
+      {"texto": "B.- 4-1/2 ΑNU.", "puntos": 1},
+      {"texto": "C.- 4-3/4 ANU.", "puntos": 0}
     ]
   },
   {
@@ -125,8 +125,8 @@ final List<Map<String, Object>> poolpesoybalance = [
     "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
     "respuestas": [
       {"texto": "A.- 3-3/4 ANU.", "puntos": 0},
-      {"texto": "B.- 4 ANU.", "puntos": 1},
-      {"texto": "C.- 4-1/4 ANU.", "puntos": 0}
+      {"texto": "B.- 4 ANU.", "puntos": 0},
+      {"texto": "C.- 4-1/4 ANU.", "puntos": 1}
     ]
   },
   {
@@ -134,9 +134,9 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) Busca la condición de operación G-4 en la tabla indicada y toma los datos de peso/configuración requeridos. 2) En Figuras 81 y 83, ingresa al gráfico de compensador con el peso o condición de despegue correspondiente. 3) Desplázate hasta la curva o línea del CG aplicable. 4) Proyecta hacia la escala de trim y lee el ajuste requerido; para G-4 corresponde 2-3/4 ANU.",
     "imagenes": ["assets/figura81.jpg", "assets/figura83.jpg"],
     "respuestas": [
-      {"texto": "A.- 2-3/4 ΑNU.", "puntos": 1},
+      {"texto": "A.- 2-3/4 ΑNU.", "puntos": 0},
       {"texto": "B.- 4 ANU.", "puntos": 0},
-      {"texto": "C.- 2-1/2 ANU.", "puntos": 0}
+      {"texto": "C.- 2-1/2 ANU.", "puntos": 1}
     ]
   },
   {
@@ -144,9 +144,9 @@ final List<Map<String, Object>> poolpesoybalance = [
     "explicacion": "Ruta visual: 1) En la Figura 44 ubica la condición de carga WS-1 y el CG inicial. 2) Aplica la modificación indicada: retirar peso del compartimiento delantero. 3) Usa la escala de cambio de peso/brazo de índice de la misma figura para determinar cuánto se desplaza el momento total. 4) Al proyectar el nuevo punto de balance, el CG se desplaza hacia atrás y la lectura final es 30.0% MAC.",
     "imagenes": ["assets/figura44yfigura45.jpg"],
     "respuestas": [
-      {"texto": "A.- 27.1% МАС.", "puntos": 0},
+      {"texto": "A.- 27.1% МАС.", "puntos": 1},
       {"texto": "B.- 26.8% МАС.", "puntos": 0},
-      {"texto": "C.- 30.0% MAC.", "puntos": 1}
+      {"texto": "C.- 30.0% MAC.", "puntos": 0}
     ]
   },
   {
