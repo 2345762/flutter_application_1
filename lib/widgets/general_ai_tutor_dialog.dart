@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_tutor_service.dart';
 import 'typewriter_text.dart';
+import 'math_markdown_text.dart';
 import '../main.dart' show StorageService;
 
 class GeneralAiTutorDialog extends StatefulWidget {
@@ -607,8 +608,9 @@ class _MessageBubble extends StatelessWidget {
                     height: 1.45,
                   ),
                 )
-              : SelectableText(
-                  text,
+              : MathMarkdownText(
+                  text: text,
+                  isDarkMode: isDarkMode,
                   style: TextStyle(
                     color: isDarkMode ? Colors.white : Colors.black87,
                     fontSize: 13.5,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/ai_tutor_service.dart';
 import 'typewriter_text.dart';
+import 'math_markdown_text.dart';
 
 class AiTutorDialog extends StatefulWidget {
   final String formQuestion;
@@ -46,6 +47,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
   bool _isLoading = false;
   String? _errorMessage;
   bool _isRetryable = true;
+  bool _isTypingComplete = false;
 
   @override
   void dispose() {
@@ -61,6 +63,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
       _errorMessage = null;
       _isRetryable = true;
       _response = '';
+      _isTypingComplete = false;
     });
 
     try {
@@ -76,6 +79,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
       setState(() {
         _response = answer;
         _isLoading = false;
+        _isTypingComplete = false;
       });
     } on AiTutorException catch (e) {
       if (!mounted) return;
@@ -295,7 +299,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _errorMessage != null ? 'Aviso' : 'Explicación del Instructor',
+                          _errorMessage != null ? 'Aviso' : 'Explicación:',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: _errorMessage != null
@@ -315,9 +319,22 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                           height: 1.5,
                         ),
                       )
-                    else
+                    else if (!_isTypingComplete)
                       TypewriterText(
                         text: _response,
+                        onComplete: () {
+                          if (mounted) setState(() => _isTypingComplete = true);
+                        },
+                        style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                          fontSize: 13.5,
+                          height: 1.5,
+                        ),
+                      )
+                    else
+                      MathMarkdownText(
+                        text: _response,
+                        isDarkMode: isDarkMode,
                         style: TextStyle(
                           color: isDarkMode ? Colors.white : Colors.black87,
                           fontSize: 13.5,

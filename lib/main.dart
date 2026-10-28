@@ -40,6 +40,7 @@ import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
 import 'widgets/panel_estudio/user_profile_page.dart';
 import 'widgets/ai_tutor_dialog.dart';
+import 'widgets/math_markdown_text.dart';
 import 'widgets/general_ai_tutor_dialog.dart';
 import 'services/ai_tutor_service.dart';
 
@@ -4536,8 +4537,9 @@ class _QuizPageState extends State<QuizPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    pregunta['explicacion'],
+                  MathMarkdownText(
+                    text: pregunta['explicacion'],
+                    isDarkMode: esModoOscuro,
                     style: TextStyle(
                       color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                       fontSize: 14,
@@ -6639,8 +6641,9 @@ class ExamDetailScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            questionData['explanation'],
+                          MathMarkdownText(
+                            text: questionData['explanation'],
+                            isDarkMode: esModoOscuro,
                             style: TextStyle(
                               fontSize: 13,
                               color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
