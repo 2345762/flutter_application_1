@@ -20,7 +20,8 @@ class ModeSelectorSheet extends StatelessWidget {
   final VoidCallback? onContinue; // New callback for continue studying
   final int? currentQuestion; // Current question index
   final int? totalQuestions; // Total questions for progress display
-  final String? partialProgressMode; // Mode of the partial progress ('practice', 'test', or 'streak')
+  final String?
+      partialProgressMode; // Mode of the partial progress ('practice', 'test', or 'streak')
 
   const ModeSelectorSheet({
     super.key,
@@ -50,18 +51,21 @@ class ModeSelectorSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     final Color surface = esModoOscuro ? const Color(0xFF1E293B) : Colors.white;
-    final Color textColor = esModoOscuro
-        ? const Color(0xFFE2E8F0)
-        : const Color(0xFF0F172A);
-    final Color secondaryTextColor = esModoOscuro
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF475569);
+    final Color textColor =
+        esModoOscuro ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final Color secondaryTextColor =
+        esModoOscuro ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     final bool hasLives = availableLives > 0;
 
     final double maxHeight = MediaQuery.of(context).size.height * 0.85;
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: maxHeight,
+          maxWidth: 550,
+        ),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
@@ -104,10 +108,14 @@ class ModeSelectorSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               // Continue studying option (if progress exists AND it's practice mode only)
-              if (onContinue != null && currentQuestion != null && totalQuestions != null && partialProgressMode == 'practice')
+              if (onContinue != null &&
+                  currentQuestion != null &&
+                  totalQuestions != null &&
+                  partialProgressMode == 'practice')
                 Semantics(
                   button: true,
-                  label: 'Continuar estudiando. Pregunta $currentQuestion de $totalQuestions.',
+                  label:
+                      'Continuar estudiando. Pregunta $currentQuestion de $totalQuestions.',
                   child: _ModeCard(
                     color: practicaColor,
                     icon: Icons.play_arrow,
@@ -122,7 +130,10 @@ class ModeSelectorSheet extends StatelessWidget {
                     secondaryTextColor: secondaryTextColor,
                   ),
                 ),
-              if (onContinue != null && currentQuestion != null && totalQuestions != null && partialProgressMode == 'practice')
+              if (onContinue != null &&
+                  currentQuestion != null &&
+                  totalQuestions != null &&
+                  partialProgressMode == 'practice')
                 const SizedBox(height: 10),
               Semantics(
                 button: true,
@@ -177,7 +188,8 @@ class ModeSelectorSheet extends StatelessWidget {
                   trailing: _HeartsRow(lives: lives),
                   extra: Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Row(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           _vidasLabel(availableLives),
@@ -224,7 +236,8 @@ class ModeSelectorSheet extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -367,13 +380,16 @@ class _HeartsRow extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: life.isAvailable 
-                      ? ModeSelectorSheet.corazonDisponible.withValues(alpha: 0.1)
+                  color: life.isAvailable
+                      ? ModeSelectorSheet.corazonDisponible
+                          .withValues(alpha: 0.1)
                       : ModeSelectorSheet.corazonGastado.withValues(alpha: 0.1),
                   border: Border.all(
-                    color: life.isAvailable 
-                        ? ModeSelectorSheet.corazonDisponible.withValues(alpha: 0.3)
-                        : ModeSelectorSheet.corazonGastado.withValues(alpha: 0.3),
+                    color: life.isAvailable
+                        ? ModeSelectorSheet.corazonDisponible
+                            .withValues(alpha: 0.3)
+                        : ModeSelectorSheet.corazonGastado
+                            .withValues(alpha: 0.3),
                     width: 1.5,
                   ),
                 ),
@@ -389,7 +405,8 @@ class _HeartsRow extends StatelessWidget {
               ),
               if (!life.isAvailable && life.rechargeTime != null)
                 StreamBuilder(
-                  stream: Stream.periodic(const Duration(seconds: 1), (count) => count),
+                  stream: Stream.periodic(
+                      const Duration(seconds: 1), (count) => count),
                   builder: (context, snapshot) {
                     final now = tz.TZDateTime.now(tz.local);
                     final remaining = life.rechargeTime!.difference(now);

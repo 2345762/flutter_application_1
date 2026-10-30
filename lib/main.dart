@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -17,6 +16,7 @@ import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:lottie/lottie.dart';
 
 // =============================================================
 // SECCIÓN DE DATOS: IMPORTAR PREGUNTAS
@@ -40,6 +40,9 @@ import 'widgets/panel_estudio/progress_summary.dart';
 import 'widgets/panel_estudio/app_drawer.dart';
 import 'widgets/panel_estudio/user_profile_page.dart';
 import 'widgets/ai_tutor_dialog.dart';
+import 'widgets/math_markdown_text.dart';
+import 'widgets/general_ai_tutor_dialog.dart';
+import 'services/ai_tutor_service.dart';
 
 // =============================================================
 // UTILIDADES DE ZONA HORARIA CHILENA
@@ -343,6 +346,292 @@ class PartialExamProgress {
 class StorageService {
   static const String _streakKey = 'streak_data';
   static const String _globalStreakKey = 'global_streak_data';
+  static bool _isSyncing = false;
+  static const int maxDailyAiMessages = 3;
+
+  /// Returns today's date formatted as YYYY-MM-DD in Chilean timezone.
+  static String getChileanTodayString() => _getChileanDate().toIso8601String().split('T').first;
+
+  /// Returns the number of remaining AI tutor messages available for today (0 to 3).
+  static Future<int> getRemainingDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      int localCount = 0;
+      final cachedJsonStr = prefs.getString(localKey);
+      if (cachedJsonStr != null) {
+        final cached = json.decode(cachedJsonStr) as Map<String, dynamic>;
+        if (cached['date'] == todayStr) {
+          localCount = cached['count'] as int? ?? 0;
+        }
+      }
+
+      // Check Firestore for cross-device consistency
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName)
+            .get()
+            .timeout(const Duration(seconds: 3));
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          if (data.containsKey('aiDailyUsage')) {
+            final aiUsage = data['aiDailyUsage'] as Map<String, dynamic>;
+            if (aiUsage['date'] == todayStr) {
+              final remoteCount = aiUsage['count'] as int? ?? 0;
+              final effectiveCount = remoteCount > localCount ? remoteCount : localCount;
+              await prefs.setString(localKey, json.encode({'date': todayStr, 'count': effectiveCount}));
+              return (maxDailyAiMessages - effectiveCount).clamp(0, maxDailyAiMessages);
+            } else {
+              // Different date on remote -> reset counter for today
+              await prefs.setString(localKey, json.encode({'date': todayStr, 'count': 0}));
+              return maxDailyAiMessages;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Note: Firestore AI usage fetch fallback to local: $e");
+      }
+
+      return (maxDailyAiMessages - localCount).clamp(0, maxDailyAiMessages);
+    } catch (e) {
+      debugPrint("Error in getRemainingDailyAiMessages: $e");
+      return maxDailyAiMessages;
+    }
+  }
+
+  /// Checks if the user is allowed to send an AI message today.
+  static Future<bool> canSendAiMessage(String userName) async {
+    final remaining = await getRemainingDailyAiMessages(userName);
+    return remaining > 0;
+  }
+
+  /// Increments today's AI message counter in both Firestore and local storage.
+  /// Returns the updated count of remaining messages.
+  static Future<int> incrementDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      int currentCount = 0;
+      final cachedJsonStr = prefs.getString(localKey);
+      if (cachedJsonStr != null) {
+        final cached = json.decode(cachedJsonStr) as Map<String, dynamic>;
+        if (cached['date'] == todayStr) {
+          currentCount = cached['count'] as int? ?? 0;
+        }
+      }
+
+      final newCount = currentCount + 1;
+      await prefs.setString(localKey, json.encode({'date': todayStr, 'count': newCount}));
+
+      try {
+        final docRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+        await docRef.set({
+          'aiDailyUsage': {
+            'date': todayStr,
+            'count': newCount,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint("Error syncing AI daily count to Firestore: $e");
+      }
+
+      return (maxDailyAiMessages - newCount).clamp(0, maxDailyAiMessages);
+    } catch (e) {
+      debugPrint("Error in incrementDailyAiMessages: $e");
+      return 0;
+    }
+  }
+
+  /// Resets today's AI message counter to 0 (all messages available).
+  /// Specifically designed for testers to test without quota limits.
+  static Future<int> resetDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      await prefs.setString(localKey, json.encode({'date': todayStr, 'count': 0}));
+
+      try {
+        final docRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+        await docRef.set({
+          'aiDailyUsage': {
+            'date': todayStr,
+            'count': 0,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint("Note: Resetting AI daily count in Firestore fallback to local: $e");
+      }
+
+      return maxDailyAiMessages;
+    } catch (e) {
+      debugPrint("Error in resetDailyAiMessages: $e");
+      return maxDailyAiMessages;
+    }
+  }
+
+  /// Bidirectional synchronization between local SharedPreferences and Cloud Firestore.
+  /// Seamlessly synchronizes streak progress, lives, recharge timers, and study records across devices.
+  static Future<void> syncWithFirebase() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userName = prefs.getString('userName');
+      if (userName == null || userName.isEmpty) return;
+
+      final now = tz.TZDateTime.now(tz.local);
+      final nowChile = _toChileanTimeAsDateTime(now);
+      final today = _getChileanDate();
+
+      final userDocRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+      final userDoc = await userDocRef.get();
+
+      if (!userDoc.exists) {
+        // Document doesn't exist yet, push current local data or defaults
+        await _batchUpdateFirebase(userName);
+        return;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // --- 1. LIVES SYNCHRONIZATION ---
+      List<LifeData> syncedLives = [];
+      if (userData.containsKey('livesData')) {
+        final livesDataJson = userData['livesData'] as List<dynamic>;
+        for (var lJson in livesDataJson) {
+          syncedLives.add(LifeData.fromJson(lJson as Map<String, dynamic>));
+        }
+      } else if (userData.containsKey('globalLives')) {
+        final gLives = userData['globalLives'] as int? ?? 3;
+        syncedLives = List.generate(3, (idx) => LifeData(isAvailable: idx < gLives));
+      }
+
+      while (syncedLives.length < 3) {
+        syncedLives.add(LifeData(isAvailable: true));
+      }
+      if (syncedLives.length > 3) {
+        syncedLives = syncedLives.sublist(0, 3);
+      }
+
+      // Check recharge timers against current Chilean time
+      for (int i = 0; i < syncedLives.length; i++) {
+        if (!syncedLives[i].isAvailable && syncedLives[i].rechargeTime != null) {
+          if (nowChile.isAfter(syncedLives[i].rechargeTime!) ||
+              nowChile.isAtSameMomentAs(syncedLives[i].rechargeTime!)) {
+            syncedLives[i] = LifeData(isAvailable: true);
+          }
+        }
+      }
+
+      final globalStreak = GlobalStreakData(lives: syncedLives);
+      await saveGlobalStreakData(globalStreak);
+
+      // --- 2. STREAK SYNCHRONIZATION ---
+      StreakData? firestoreStreak;
+      if (userData.containsKey('globalStreak')) {
+        firestoreStreak = StreakData.fromJson(userData['globalStreak'] as Map<String, dynamic>);
+      }
+
+      final localStreak = await getStreakData();
+      StreakData workingStreak = firestoreStreak ?? localStreak ?? StreakData(
+        streakDays: userData['current_streak'] as int? ?? 0,
+        lastExamDate: nowChile,
+        totalExams: userData['totalExams'] as int? ?? 0,
+        maxStreakDays: userData['max_streak'] as int? ?? 0,
+        dailyExamsPassed: 0,
+        lastDailyResetDate: today,
+        lastPassedExamDate: null,
+      );
+
+      if (localStreak != null && firestoreStreak != null) {
+        if (localStreak.lastPassedExamDate != null && firestoreStreak.lastPassedExamDate != null) {
+          if (localStreak.lastPassedExamDate!.isAfter(firestoreStreak.lastPassedExamDate!)) {
+            workingStreak = localStreak;
+          } else {
+            workingStreak = firestoreStreak;
+          }
+        } else if (localStreak.lastPassedExamDate != null) {
+          workingStreak = localStreak;
+        } else {
+          workingStreak = firestoreStreak;
+        }
+      }
+
+      // Check streak reset condition (> 1 calendar day skipped)
+      if (workingStreak.lastPassedExamDate != null) {
+        final lastPassedDate = DateTime(
+          workingStreak.lastPassedExamDate!.year,
+          workingStreak.lastPassedExamDate!.month,
+          workingStreak.lastPassedExamDate!.day,
+        );
+        final difference = today.difference(lastPassedDate).inDays;
+        if (difference > 1) {
+          workingStreak = StreakData(
+            streakDays: 0,
+            lastExamDate: workingStreak.lastExamDate,
+            totalExams: workingStreak.totalExams,
+            maxStreakDays: workingStreak.maxStreakDays,
+            dailyExamsPassed: 0,
+            lastDailyResetDate: today,
+            lastPassedExamDate: null,
+          );
+        }
+      }
+
+      await saveStreakData(workingStreak);
+
+      // --- 3. EXAM HISTORY SYNCHRONIZATION ---
+      if (userData.containsKey('examHistory')) {
+        final firebaseHistory = userData['examHistory'] as List<dynamic>;
+        await prefs.setString(_examHistoryKey, json.encode(firebaseHistory));
+      }
+
+      // --- 4. STUDY PROGRESS SYNCHRONIZATION ---
+      if (userData.containsKey('studyProgress')) {
+        try {
+          final studyProgress = userData['studyProgress'] as Map<String, dynamic>;
+          final allProgressStr = prefs.getString(_partialProgressKey) ?? '{}';
+          final Map<String, dynamic> allProgress = json.decode(allProgressStr);
+          for (var entry in studyProgress.entries) {
+            allProgress[entry.key] = entry.value;
+          }
+          await prefs.setString(_partialProgressKey, json.encode(allProgress));
+        } catch (e) {
+          debugPrint("Error updating study progress during sync: $e");
+        }
+      }
+
+      // --- 5. PERSIST SYNCHRONIZED STATE BACK TO FIRESTORE ---
+      final examHistoryList = prefs.getString(_examHistoryKey) ?? '[]';
+      final List<dynamic> parsedHistory = json.decode(examHistoryList);
+      final passedCount = parsedHistory.where((e) => (e['passed'] as bool? ?? true)).length;
+
+      await userDocRef.set({
+        'livesData': syncedLives.map((l) => l.toJson()).toList(),
+        'globalLives': syncedLives.where((l) => l.isAvailable).length,
+        'globalStreak': workingStreak.toJson(),
+        'current_streak': workingStreak.streakDays,
+        'max_streak': workingStreak.maxStreakDays,
+        'totalExams': workingStreak.totalExams,
+        'passedExams': passedCount,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+    } catch (e) {
+      debugPrint("Error in StorageService.syncWithFirebase: $e");
+    } finally {
+      _isSyncing = false;
+    }
+  }
 
   /// Firebase sync with retry mechanism
   /// Attempts to sync data to Firebase with automatic retries on failure
@@ -363,12 +652,12 @@ class StorageService {
         return true; // Success
       } catch (e) {
         attempt++;
-        print("Firebase sync attempt $attempt failed: $e");
+        debugPrint("Firebase sync attempt $attempt failed: $e");
         
         if (attempt < maxRetries) {
           await Future.delayed(retryDelay);
         } else {
-          print("Firebase sync failed after $maxRetries attempts");
+          debugPrint("Firebase sync failed after $maxRetries attempts");
           return false; // All retries failed
         }
       }
@@ -384,7 +673,7 @@ class StorageService {
       SharedPreferences prefsUser = await SharedPreferences.getInstance();
       String userNameCheck = prefsUser.getString('userName') ?? "Unknown";
       if (userName != userNameCheck) {
-        print("Username mismatch in batch update");
+        debugPrint("Username mismatch in batch update");
         return false;
       }
       
@@ -417,6 +706,7 @@ class StorageService {
       
       userData['examHistory'] = examHistory.map((exam) => exam.toJson()).toList();
       userData['totalExams'] = examHistory.length;
+      userData['passedExams'] = examHistory.where((exam) => exam.passed).length;
       
       Map<String, dynamic> studyProgress = {};
       for (var entry in partialProgress.entries) {
@@ -428,7 +718,7 @@ class StorageService {
       
       return await _syncToFirebaseWithRetry(userName, userData);
     } catch (e) {
-      print("Error in batch Firebase update: $e");
+      debugPrint("Error in batch Firebase update: $e");
       return false;
     }
   }
@@ -445,7 +735,7 @@ class StorageService {
         if (!streakData.containsKey('streakDays') || 
             !streakData.containsKey('totalExams') ||
             !streakData.containsKey('maxStreakDays')) {
-          print("Invalid streak data: missing required fields");
+          debugPrint("Invalid streak data: missing required fields");
           return false;
         }
         
@@ -453,7 +743,7 @@ class StorageService {
         if (streakData['streakDays'] is! int || 
             streakData['totalExams'] is! int ||
             streakData['maxStreakDays'] is! int) {
-          print("Invalid streak data: wrong data types");
+          debugPrint("Invalid streak data: wrong data types");
           return false;
         }
         
@@ -461,7 +751,7 @@ class StorageService {
         if (streakData['streakDays'] < 0 || 
             streakData['totalExams'] < 0 ||
             streakData['maxStreakDays'] < 0) {
-          print("Invalid streak data: negative values");
+          debugPrint("Invalid streak data: negative values");
           return false;
         }
       }
@@ -471,14 +761,14 @@ class StorageService {
         final livesData = userData['livesData'] as List<dynamic>;
         
         if (livesData.length != 3) {
-          print("Invalid lives data: should have exactly 3 lives, found ${livesData.length}");
+          debugPrint("Invalid lives data: should have exactly 3 lives, found ${livesData.length}");
           return false;
         }
         
         for (var lifeJson in livesData) {
           final life = lifeJson as Map<String, dynamic>;
           if (!life.containsKey('isAvailable') || life['isAvailable'] is! bool) {
-            print("Invalid life data: missing or invalid isAvailable field");
+            debugPrint("Invalid life data: missing or invalid isAvailable field");
             return false;
           }
         }
@@ -494,7 +784,7 @@ class StorageService {
               !exam.containsKey('subject') ||
               !exam.containsKey('score') ||
               !exam.containsKey('date')) {
-            print("Invalid exam data: missing required fields");
+            debugPrint("Invalid exam data: missing required fields");
             return false;
           }
         }
@@ -502,7 +792,7 @@ class StorageService {
       
       return true;
     } catch (e) {
-      print("Error validating Firebase data: $e");
+      debugPrint("Error validating Firebase data: $e");
       return false;
     }
   }
@@ -563,7 +853,8 @@ class StorageService {
       final lastPassedDate = DateTime(currentStreak.lastPassedExamDate!.year, currentStreak.lastPassedExamDate!.month, currentStreak.lastPassedExamDate!.day);
       final difference = today.difference(lastPassedDate).inDays;
       
-      if (difference >= 1) {
+      // User only skipped if more than 1 day has passed (e.g., studied Mon, today Wed = difference 2)
+      if (difference > 1) {
         // User skipped 1 or more days - reset streak to 0
         final resetStreak = StreakData(
           streakDays: 0,
@@ -576,7 +867,7 @@ class StorageService {
         );
         
         await saveStreakData(resetStreak);
-        print("Streak reset to 0 (skipped 1 or more days)");
+        debugPrint("Streak reset to 0 (skipped 1 or more days)");
         
         // Sync to Firebase
         try {
@@ -584,11 +875,11 @@ class StorageService {
           String userName = prefsUser.getString('userName') ?? "Unknown";
           await _batchUpdateFirebase(userName);
         } catch (e) {
-          print("Error syncing streak reset to Firebase: $e");
+          debugPrint("Error syncing streak reset to Firebase: $e");
         }
       }
     } catch (e) {
-      print("Error checking streak reset: $e");
+      debugPrint("Error checking streak reset: $e");
     }
   }
 
@@ -604,7 +895,7 @@ class StorageService {
       
       if (livesChanged) {
         await saveGlobalStreakData(rechargedLives);
-        print("Lives recharged successfully. Available lives: ${rechargedLives.availableLives}/3");
+        debugPrint("Lives recharged successfully. Available lives: ${rechargedLives.availableLives}/3");
         
         // Sync to Firebase
         try {
@@ -612,11 +903,11 @@ class StorageService {
           String userName = prefsUser.getString('userName') ?? "Unknown";
           await _batchUpdateFirebase(userName);
         } catch (e) {
-          print("Error syncing recharged lives to Firebase: $e");
+          debugPrint("Error syncing recharged lives to Firebase: $e");
         }
       }
     } catch (e) {
-      print("Error checking life recharge: $e");
+      debugPrint("Error checking life recharge: $e");
     }
   }
 
@@ -646,7 +937,7 @@ class StorageService {
       final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
       final difference = today.difference(lastPassedDate).inDays;
       
-      if (difference >= 1) {
+      if (difference > 1) {
         // User skipped 1 or more days - reset streak to 0
         workingStreak = StreakData(
           streakDays: 0,
@@ -693,11 +984,10 @@ class StorageService {
       // This allows building consecutive day streaks (Day 1 → Day 2 → Day 3, etc.)
       if (workingStreak.lastPassedExamDate != null) {
         final lastPassedDate = DateTime(workingStreak.lastPassedExamDate!.year, workingStreak.lastPassedExamDate!.month, workingStreak.lastPassedExamDate!.day);
-        final currentDate = DateTime(now.year, now.month, now.day);
         
-        if (currentDate.isAfter(lastPassedDate)) {
-          // Passed exam on a new day - increment streak
-          newStreakDays++;
+        if (today.isAfter(lastPassedDate)) {
+          // Passed exam on a new calendar day - increment streak
+          newStreakDays = workingStreak.streakDays + 1;
           
           // Update max streak if needed
           if (newStreakDays > newMaxStreak) {
@@ -739,7 +1029,7 @@ class StorageService {
       // Use batch update for consistency
       await _batchUpdateFirebase(userName);
     } catch (e) {
-      print("Error syncing streak update to Firebase: $e");
+      debugPrint("Error syncing streak update to Firebase: $e");
     }
   }
 
@@ -823,6 +1113,21 @@ class StorageService {
         firebaseHistory.add(result.toJson());
         // Only increment exam count if it's not a duplicate
         userData['totalExams'] = (userData['totalExams'] as int? ?? 0) + 1;
+        if (result.passed) {
+          userData['passedExams'] = (userData['passedExams'] as int? ?? 0) + 1;
+        }
+      }
+
+      // Also record exam in user subcollection for audit and fast per-exam lookups
+      try {
+        await FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName)
+            .collection('exams')
+            .doc(result.id)
+            .set(result.toJson(), SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Error saving exam to subcollection: $e");
       }
       
       // Keep only last 50 exams in Firebase as well
@@ -852,7 +1157,7 @@ class StorageService {
       await _batchUpdateFirebase(userName);
     } catch (e) {
       // Firebase save failure shouldn't block local storage
-      print("Error saving user summary to Firebase: $e");
+      debugPrint("Error saving user summary to Firebase: $e");
     }
   }
 
@@ -873,7 +1178,7 @@ class StorageService {
         
         // Validate Firebase data before applying
         if (!_validateFirebaseData(userData)) {
-          print("Invalid Firebase data detected, skipping load");
+          debugPrint("Invalid Firebase data detected, skipping load");
           return;
         }
         
@@ -953,12 +1258,12 @@ class StorageService {
             
             await prefs.setString(_partialProgressKey, json.encode(allProgress));
           } catch (e) {
-            print("Error loading study progress from Firebase: $e");
+            debugPrint("Error loading study progress from Firebase: $e");
           }
         }
       }
     } catch (e) {
-      print("Error loading from Firebase: $e");
+      debugPrint("Error loading from Firebase: $e");
     }
   }
 
@@ -1036,7 +1341,7 @@ class StorageService {
       // Use batch update for consistency
       await _batchUpdateFirebase(userName);
     } catch (e) {
-      print("Error saving study progress to Firebase: $e");
+      debugPrint("Error saving study progress to Firebase: $e");
     }
   }
 
@@ -1148,7 +1453,7 @@ class StorageService {
       // Use batch update for consistency
       await _batchUpdateFirebase(userName);
     } catch (e) {
-      print("Error clearing study progress from Firebase: $e");
+      debugPrint("Error clearing study progress from Firebase: $e");
     }
   }
 
@@ -1234,29 +1539,12 @@ class StorageService {
               'lastUpdated': FieldValue.serverTimestamp(),
             });
             
-            return true;
+            return lives;
           });
           
-          // If transaction succeeded, update local storage
-          if (result == true) {
-            final globalStreak = await getGlobalStreakData();
-            final rechargedStreak = await _rechargeGlobalLivesIfNeeded(globalStreak);
-            
-            // Deduct one life locally to match Firebase
-            List<LifeData> updatedLives = List.from(rechargedStreak.lives);
-            for (int i = 0; i < updatedLives.length; i++) {
-              if (updatedLives[i].isAvailable) {
-                final now = tz.TZDateTime.now(tz.local);
-                final rechargeTime = _toChileanTimeAsDateTime(now.add(const Duration(hours: 8)));
-                updatedLives[i] = LifeData(
-                  isAvailable: false,
-                  rechargeTime: rechargeTime,
-                );
-                break;
-              }
-            }
-            
-            final updatedGlobalStreak = GlobalStreakData(lives: updatedLives);
+          // If transaction succeeded, update local storage with exact committed lives
+          if (result is List<LifeData>) {
+            final updatedGlobalStreak = GlobalStreakData(lives: result);
             await saveGlobalStreakData(updatedGlobalStreak);
           }
           
@@ -1264,10 +1552,10 @@ class StorageService {
         } catch (e) {
           attempt++;
           if (attempt < maxRetries) {
-            print("Firebase transaction attempt $attempt failed: $e. Retrying...");
+            debugPrint("Firebase transaction attempt $attempt failed: $e. Retrying...");
             await Future.delayed(Duration(milliseconds: 500 * attempt));
           } else {
-            print("Firebase transaction failed after $maxRetries attempts: $e");
+            debugPrint("Firebase transaction failed after $maxRetries attempts: $e");
             rethrow;
           }
         }
@@ -1275,7 +1563,7 @@ class StorageService {
       
       return false;
     } catch (e) {
-      print("Error in atomic life deduction: $e");
+      debugPrint("Error in atomic life deduction: $e");
       return false;
     }
   }
@@ -1356,16 +1644,16 @@ class StorageService {
         } catch (e) {
           attempt++;
           if (attempt < maxRetries) {
-            print("Firebase refund transaction attempt $attempt failed: $e. Retrying...");
+            debugPrint("Firebase refund transaction attempt $attempt failed: $e. Retrying...");
             await Future.delayed(Duration(milliseconds: 500 * attempt));
           } else {
-            print("Firebase refund transaction failed after $maxRetries attempts: $e");
+            debugPrint("Firebase refund transaction failed after $maxRetries attempts: $e");
             rethrow;
           }
         }
       }
     } catch (e) {
-      print("Error refunding life: $e");
+      debugPrint("Error refunding life: $e");
     }
   }
 
@@ -1377,7 +1665,7 @@ class StorageService {
       
       if (userName == null) return;
       
-      print("Normalizing user data for: $userName");
+      debugPrint("Normalizing user data for: $userName");
       
       // Normalize local storage
       final globalStreak = await getGlobalStreakData();
@@ -1387,18 +1675,18 @@ class StorageService {
       if (globalStreak.lives.isEmpty) {
         // No lives data - create default 3 lives
         normalizedLives = List.generate(3, (_) => LifeData(isAvailable: true));
-        print("Created default 3 lives for user with no lives data");
+        debugPrint("Created default 3 lives for user with no lives data");
       } else if (globalStreak.lives.length < 3) {
         // Incomplete lives data - fill with available lives
         normalizedLives = List<LifeData>.from(globalStreak.lives);
         while (normalizedLives.length < 3) {
           normalizedLives.add(LifeData(isAvailable: true));
         }
-        print("Filled incomplete lives data from ${globalStreak.lives.length} to 3 lives");
+        debugPrint("Filled incomplete lives data from ${globalStreak.lives.length} to 3 lives");
       } else if (globalStreak.lives.length > 3) {
         // Too many lives - truncate to 3
         normalizedLives = globalStreak.lives.sublist(0, 3);
-        print("Truncated lives data from ${globalStreak.lives.length} to 3 lives");
+        debugPrint("Truncated lives data from ${globalStreak.lives.length} to 3 lives");
       } else {
         // Correct number of lives - validate and clean
         normalizedLives = List<LifeData>.from(globalStreak.lives);
@@ -1413,11 +1701,11 @@ class StorageService {
             if (normalizedLives[i].rechargeTime == null || 
                 nowAsDateTime.isAfter(normalizedLives[i].rechargeTime!)) {
               normalizedLives[i] = LifeData(isAvailable: true);
-              print("Fixed invalid recharge time for life $i");
+              debugPrint("Fixed invalid recharge time for life $i");
             }
           }
         }
-        print("Validated and cleaned existing lives data");
+        debugPrint("Validated and cleaned existing lives data");
       }
       
       // Ensure recharge times are in Chilean timezone
@@ -1430,7 +1718,7 @@ class StorageService {
               isAvailable: false,
               rechargeTime: chileanTime,
             );
-            print("Converted recharge time to Chilean timezone for life $i");
+            debugPrint("Converted recharge time to Chilean timezone for life $i");
           }
         }
       }
@@ -1464,7 +1752,7 @@ class StorageService {
                 'globalLives': firebaseLives.where((life) => life.isAvailable).length,
                 'lastUpdated': FieldValue.serverTimestamp(),
               });
-              print("Converted legacy globalLives format to livesData in Firebase");
+              debugPrint("Converted legacy globalLives format to livesData in Firebase");
             }
             // Update existing livesData with normalized version
             else if (userData.containsKey('livesData')) {
@@ -1473,7 +1761,7 @@ class StorageService {
                 'globalLives': normalizedLives.where((life) => life.isAvailable).length,
                 'lastUpdated': FieldValue.serverTimestamp(),
               });
-              print("Updated Firebase with normalized lives data");
+              debugPrint("Updated Firebase with normalized lives data");
             }
             // Create livesData if it doesn't exist
             else {
@@ -1482,7 +1770,7 @@ class StorageService {
                 'globalLives': normalizedLives.where((life) => life.isAvailable).length,
                 'lastUpdated': FieldValue.serverTimestamp(),
               });
-              print("Created livesData in Firebase for user");
+              debugPrint("Created livesData in Firebase for user");
             }
           } else {
             // User document doesn't exist - create it with normalized data
@@ -1496,24 +1784,24 @@ class StorageService {
               'examHistory': [],
               'studyProgress': {},
             });
-            print("Created Firebase document with normalized lives data");
+            debugPrint("Created Firebase document with normalized lives data");
           }
         });
         
-        print("Successfully normalized user data for: $userName");
+        debugPrint("Successfully normalized user data for: $userName");
       } catch (e) {
-        print("Error normalizing Firebase data: $e");
+        debugPrint("Error normalizing Firebase data: $e");
         // Continue even if Firebase normalization fails - local data is still normalized
       }
     } catch (e) {
-      print("Error normalizing user data: $e");
+      debugPrint("Error normalizing user data: $e");
     }
   }
 
   // Batch normalize all existing users in Firebase (for admin/migration purposes)
   static Future<void> normalizeAllUsersInFirebase() async {
     try {
-      print("Starting batch normalization of all users in Firebase...");
+      debugPrint("Starting batch normalization of all users in Firebase...");
       
       final usersSnapshot = await FirebaseFirestore.instance
           .collection('user_summaries')
@@ -1524,7 +1812,7 @@ class StorageService {
       
       for (var doc in usersSnapshot.docs) {
         try {
-          final userData = doc.data() as Map<String, dynamic>;
+          final userData = doc.data();
           final userId = doc.id;
           
           List<LifeData> normalizedLives = [];
@@ -1536,7 +1824,7 @@ class StorageService {
               3,
               (index) => LifeData(isAvailable: index < legacyLives),
             );
-            print("Converted legacy format for user: $userId");
+            debugPrint("Converted legacy format for user: $userId");
           }
           // Handle existing livesData
           else if (userData.containsKey('livesData')) {
@@ -1552,12 +1840,12 @@ class StorageService {
             if (normalizedLives.length > 3) {
               normalizedLives = normalizedLives.sublist(0, 3);
             }
-            print("Normalized existing lives for user: $userId");
+            debugPrint("Normalized existing lives for user: $userId");
           }
           // Create default lives if missing
           else {
             normalizedLives = List.generate(3, (_) => LifeData(isAvailable: true));
-            print("Created default lives for user: $userId");
+            debugPrint("Created default lives for user: $userId");
           }
           
           // Update the document
@@ -1569,51 +1857,50 @@ class StorageService {
           
           processedCount++;
         } catch (e) {
-          print("Error processing user ${doc.id}: $e");
+          debugPrint("Error processing user ${doc.id}: $e");
           errorCount++;
         }
       }
       
-      print("Batch normalization complete. Processed: $processedCount, Errors: $errorCount");
+      debugPrint("Batch normalization complete. Processed: $processedCount, Errors: $errorCount");
     } catch (e) {
-      print("Error in batch normalization: $e");
+      debugPrint("Error in batch normalization: $e");
     }
   }
 
   // Anti-cheat: Check for rage quit in Streak Mode
+  // Note: A life is already deducted when starting the exam, so we only clear the partial progress here
   static Future<void> checkForRageQuit() async {
     try {
       final allProgress = await getAllPartialProgress();
-      
+
       for (var entry in allProgress.entries) {
         final progress = entry.value;
-        
+
         // Only check streak mode progress
         if (progress.mode == 'streak' && progress.reachedFiftyPercent) {
           // User reached 50% but didn't finish - treat as failure
-          print("Rage quit detected in Streak Mode for ${progress.subject}. Deducting a life.");
-          
-          // Use atomic deduction for consistency
-          await deductLifeAtomically();
-          
+          debugPrint("Rage quit detected in Streak Mode for ${progress.subject}. Clearing partial progress.");
+
           // Clear the partial progress to prevent repeated deductions (only for streak mode)
+          // Note: Life was already deducted when exam started, so we don't deduct again
           await clearPartialProgress(progress.subject, mode: 'streak');
-          
+
           // Sync to Firebase with explicit streak values
           try {
             SharedPreferences prefsUser = await SharedPreferences.getInstance();
             String userName = prefsUser.getString('userName') ?? "Unknown";
-            
+
             var userDoc = await FirebaseFirestore.instance
                 .collection('user_summaries')
                 .doc(userName)
                 .get();
-            
+
             Map<String, dynamic> userData = {};
             if (userDoc.exists) {
               userData = userDoc.data() as Map<String, dynamic>;
             }
-            
+
             // Also sync current streak data
             final streakData = await getStreakData();
             if (streakData != null) {
@@ -1621,22 +1908,22 @@ class StorageService {
               userData['max_streak'] = streakData.maxStreakDays;
               userData['globalStreak'] = streakData.toJson();
             }
-            
+
             // Sync updated lives
             final globalStreak = await getGlobalStreakData();
             userData['globalLives'] = globalStreak.availableLives;
             userData['livesData'] = globalStreak.lives.map((life) => life.toJson()).toList();
             userData['lastUpdated'] = FieldValue.serverTimestamp();
-            
+
             // Use batch update for consistency
             await _batchUpdateFirebase(userName);
           } catch (e) {
-            print("Error syncing rage quit penalty to Firebase: $e");
+            debugPrint("Error syncing rage quit penalty to Firebase: $e");
           }
         }
       }
     } catch (e) {
-      print("Error checking for rage quit: $e");
+      debugPrint("Error checking for rage quit: $e");
     }
   }
 }
@@ -1692,12 +1979,10 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .timeout(const Duration(seconds: 10));
-    
-    // Initialize Firebase App Check with reCAPTCHA Enterprise
-    await FirebaseAppCheck.instance.activate(
-      webProvider: ReCaptchaEnterpriseProvider('6Lf3QtYtAAAAAEcDfc8k7mhTKZe9KJeeZEBGeyEn'),
-    );
-    
+
+    // Firebase App Check disabled for development to avoid localhost issues
+    // Re-enable for production with proper configuration
+
     // Initialize timezone data
     tz_data.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('America/Santiago'));
@@ -1709,6 +1994,7 @@ void main() async {
     // Check for streak reset and life recharge based on time (00:00 AM Chilean time)
     if (isLoggedIn) {
       await StorageService.normalizeUserData(); // Normalize user data for all users
+      await StorageService.syncWithFirebase(); // Stateful synchronization with Firestore
       await StorageService.checkAndResetStreakIfNeeded();
       await StorageService.checkAndRechargeLivesIfNeeded();
     }
@@ -1788,10 +2074,13 @@ class _PantallaPrimeraVezState extends State<PantallaPrimeraVez> {
             bottom: 60,
             left: 20,
             right: 20,
-            child: Column(
-              children: [
-                const Text(
-                  "Bienvenido a la APP EOV", // Tu frase
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 550),
+                child: Column(
+                  children: [
+                    const Text(
+                      "Bienvenido a la APP EOV", // Tu frase
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -1822,6 +2111,8 @@ class _PantallaPrimeraVezState extends State<PantallaPrimeraVez> {
               ],
             ),
           ),
+        ),
+      ),
         ],
       ),
     );
@@ -1962,7 +2253,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     _controller.forward();
     
     _validarYContinuar();
-    StorageService.loadFromFirebase(); // Load streak data from Firebase
+    StorageService.syncWithFirebase(); // Load and synchronize streak and lives data from Firebase
     StorageService.normalizeUserData(); // Normalize user data for all users
     StorageService.checkForRageQuit(); // Check for rage quit (anti-cheat)
     StorageService.checkAndRechargeLivesIfNeeded(); // Check and recharge lives based on time
@@ -2107,10 +2398,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
+                            color: Colors.blue.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -2150,7 +2441,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                         height: 40,
                         child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white.withOpacity(_fadeAnimation.value),
+                            Colors.white.withValues(alpha: _fadeAnimation.value),
                           ),
                           strokeWidth: 3,
                         ),
@@ -2381,21 +2672,21 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          const Color.fromARGB(255, 219, 178, 42).withOpacity(0.2), // Luz brillante arriba a la izquierda
-                          const Color.fromARGB(255, 40, 85, 87).withOpacity(0.05), // Sombra suave abajo a la derecha
+                          const Color.fromARGB(255, 219, 178, 42).withValues(alpha: 0.2), // Luz brillante arriba a la izquierda
+                          const Color.fromARGB(255, 40, 85, 87).withValues(alpha: 0.05), // Sombra suave abajo a la derecha
                         ],
                       ),
                       borderRadius: BorderRadius.circular(25),
                       // 2. Borde con un poco más de fuerza para que resalte
                       border: Border.all(
-                        color: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.4), 
+                        color: const Color.fromARGB(255, 255, 255, 255).withValues(alpha: 0.4), 
                         width: 1.5,
                       ),
                       // 3. EFECTO DE LUZ NOCTURNA (Glow)
                       // Esto proyecta una luz difusa detrás del logo, creando el efecto de "luz en la noche"
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blueAccent.withOpacity(0.3), // Color azul para esa vibra nocturna
+                          color: Colors.blueAccent.withValues(alpha: 0.3), // Color azul para esa vibra nocturna
                           blurRadius: 30, // Qué tan extendida es la luz
                           spreadRadius: 5, // Qué tan lejos llega el resplandor
                           offset: const Offset(0, 0), // Centrado para que la luz sea uniforme
@@ -2448,12 +2739,12 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                           margin: EdgeInsets.symmetric(horizontal: screenWidth < 360 ? 15.0 : 20.0),
                           padding: EdgeInsets.all(loginPadding),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -2510,7 +2801,7 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
                                     backgroundColor: const Color(0xFF0091D5),
                                     foregroundColor: Colors.white,
                                     elevation: 10,
-                                    shadowColor: const Color(0xFF0091D5).withOpacity(0.5),
+                                    shadowColor: const Color(0xFF0091D5).withValues(alpha: 0.5),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(15),
                                     ),
@@ -2546,9 +2837,9 @@ class _MiPantallaLoginState extends State<MiPantallaLogin> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05), // Fondo sutil del input
+        color: Colors.white.withValues(alpha: 0.05), // Fondo sutil del input
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
       child: Row(
@@ -2705,6 +2996,7 @@ class _MainMenuState extends State<MainMenu> {
   List<ExamResult> _examHistory = [];
   Map<String, PartialExamProgress> _allPartialProgress = {};
   String _userName = '';
+  String _rawUserName = '';
 
   @override
   void initState() {
@@ -2721,6 +3013,7 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Future<void> _loadStreakData() async {
+    await StorageService.syncWithFirebase();
     final streakData = await StorageService.getStreakData();
     final history = await StorageService.getExamHistory();
     final allPartialProgress = await StorageService.getPracticeModeProgress(); // Only load practice mode progress
@@ -2732,6 +3025,7 @@ class _MainMenuState extends State<MainMenu> {
         _globalStreakData = streakData;
         _examHistory = history;
         _allPartialProgress = allPartialProgress;
+        _rawUserName = rawUserName;
         _userName = rawUserName.isNotEmpty ? formatearNombreDesdeCorreo(rawUserName) : 'Usuario';
       });
     }
@@ -2821,17 +3115,6 @@ class _MainMenuState extends State<MainMenu> {
 
   int get _rachaActivaMax {
     return _globalStreakData?.streakDays ?? 0;
-  }
-
-  double? get _mejorResultadoPct {
-    if (_examHistory.isEmpty) return null;
-    double mejor = 0;
-    for (final e in _examHistory) {
-      if (e.totalQuestions <= 0) continue;
-      final pct = (e.score / e.totalQuestions) * 100;
-      if (pct > mejor) mejor = pct;
-    }
-    return mejor;
   }
 
   String _modoLabel(String modo) {
@@ -2984,10 +3267,10 @@ class _MainMenuState extends State<MainMenu> {
     materiasIniciadas: _materiasIniciadas,
     totalMaterias: widget.materias.length,
     rachaActivaMax: _rachaActivaMax,
-    mejorResultadoLabel: _mejorResultadoPct != null ? '${_mejorResultadoPct!.round()}%' : '—',
     textColor: textColor,
     secondaryTextColor: secondaryTextColor,
     onStreakTap: () => _mostrarResumenStreak(context),
+    onAiTap: () => _mostrarDialogoIA(context),
   );
 
   Widget buildSubjectCard(Map<String, dynamic> materia) {
@@ -3070,29 +3353,29 @@ class _MainMenuState extends State<MainMenu> {
         padding: const EdgeInsets.all(20.0),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1150),
+            constraints: const BoxConstraints(maxWidth: 820),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 header,
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 continueCard,
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.08,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.34,
                   ),
                   itemCount: widget.materias.length,
                   itemBuilder: (context, index) => buildSubjectCard(widget.materias[index]),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 summary,
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -3105,23 +3388,23 @@ class _MainMenuState extends State<MainMenu> {
   void _mostrarResumenStreak(BuildContext context) async {
     final globalStreak = await StorageService.getGlobalStreakData();
     final streakData = await StorageService.getStreakData();
+    if (!context.mounted) return;
     final bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
-    
-    if (context.mounted) {
-      showDialog(
+
+    showDialog(
         context: context,
         builder: (context) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: esModoOscuro ? AppColors.darkCard.withOpacity(0.95) : Colors.white.withOpacity(0.95),
+          backgroundColor: esModoOscuro ? AppColors.darkCard : AppColors.lightCard,
           title: Row(
             children: [
-              const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+              const Icon(Icons.local_fire_department, color: Color(0xFFFF7A1A), size: 28),
               const SizedBox(width: 12),
               Text(
-                "Resumen de Rachas", 
+                "Resumen de Rachas",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: esModoOscuro ? Colors.white : Colors.black,
+                  color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
                 ),
               ),
             ],
@@ -3129,110 +3412,217 @@ class _MainMenuState extends State<MainMenu> {
           content: streakData == null
               ? Text(
                   "Aún no has completado exámenes de racha.",
-                  style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+                  style: TextStyle(color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                 )
               : SingleChildScrollView(
                   child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Global streak display
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      color: esModoOscuro ? AppColors.darkCard.withOpacity(0.8) : Colors.grey[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Global streak display with animated fire
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: esModoOscuro ? AppColors.darkBackground.withValues(alpha: 0.5) : AppColors.lightBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            width: 1,
+                          ),
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.local_fire_department, color: Colors.orange, size: 24),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Racha Global: ${streakData.streakDays} días",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold, 
-                                    fontSize: 16,
-                                    color: esModoOscuro ? Colors.white : Colors.black,
+                            // Animated fire badge
+                            SizedBox(
+                              width: 80,
+                              height: 80,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Glow effect
+                                  Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: [
+                                          const Color(0xFFFFC773).withValues(alpha: 0.4),
+                                          const Color(0xFFFF8A3D).withValues(alpha: 0.22),
+                                          const Color(0xFFFF8A3D).withValues(alpha: 0.0),
+                                        ],
+                                        stops: const [0.0, 0.45, 1.0],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  // Animated fire
+                                  Lottie.asset(
+                                    'assets/animations/streak_fire.json',
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.contain,
+                                    animate: true,
+                                    repeat: true,
+                                    errorBuilder: (context, error, stackTrace) => Icon(
+                                      Icons.local_fire_department,
+                                      size: 60,
+                                      color: const Color(0xFFFF7A1A),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Racha Máxima: ${streakData.maxStreakDays} días",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 16),
+                            // Streak info
+                            Text(
+                              "${streakData.streakDays} días",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFFFB067),
+                              ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Total Exámenes Aprobados: ${streakData.totalExams}",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: esModoOscuro ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              "Racha Global",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Divider(
+                              color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            ),
+                            const SizedBox(height: 12),
+                            // Stats
+                            _buildStreakStat(
+                              icon: Icons.emoji_events,
+                              iconColor: Colors.amber,
+                              label: "Racha Máxima",
+                              value: "${streakData.maxStreakDays} días",
+                              esModoOscuro: esModoOscuro,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildStreakStat(
+                              icon: Icons.check_circle,
+                              iconColor: Colors.green,
+                              label: "Total Exámenes Aprobados",
+                              value: "${streakData.totalExams}",
+                              esModoOscuro: esModoOscuro,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    // Global lives display with improved design
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: esModoOscuro ? Colors.grey.shade800.withOpacity(0.6) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            "Vidas Disponibles", 
-                            style: TextStyle(
-                              fontSize: 14, 
-                              fontWeight: FontWeight.bold,
-                              color: esModoOscuro ? Colors.white : Colors.black,
+                      // Global lives display with improved design
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: esModoOscuro ? AppColors.darkBackground.withValues(alpha: 0.5) : AppColors.lightBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: esModoOscuro ? Colors.white12 : Colors.black12,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.favorite,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Vidas Disponibles",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: List.generate(3, (index) {
-                              final life = globalStreak.lives[index];
-                              return _buildImprovedLifeDisplay(life, index, esModoOscuro);
-                            }),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(3, (index) {
+                                final life = globalStreak.lives[index];
+                                return _buildImprovedLifeDisplay(life, index, esModoOscuro);
+                              }),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
                 "Cerrar",
-                style: TextStyle(color: esModoOscuro ? Colors.white70 : Colors.black87),
+                style: TextStyle(
+                  color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
       );
+  }
+
+  Widget _buildStreakStat({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required bool esModoOscuro,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: esModoOscuro ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: esModoOscuro ? AppColors.darkText : AppColors.lightText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _mostrarDialogoIA(BuildContext context) {
+    // Combine all subject data for the general AI tutor
+    final allSubjectData = <Map<String, Object>>[];
+    for (final materia in widget.materias) {
+      final pool = materia['pool'] as List<Map<String, Object>>;
+      allSubjectData.addAll(pool);
     }
+
+    GeneralAiTutorDialog.show(
+      context,
+      aiTutorService: AiTutorService(),
+      subjectData: allSubjectData,
+      userName: _rawUserName.isNotEmpty ? _rawUserName : null,
+    );
   }
 
   Widget _buildImprovedLifeDisplay(LifeData life, int index, bool esModoOscuro) {
@@ -3450,7 +3840,7 @@ class _MainMenuState extends State<MainMenu> {
         }
       } catch (e) {
         // If onboarding fails, show error
-        print("Onboarding failed: $e");
+        debugPrint("Onboarding failed: $e");
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -3503,15 +3893,13 @@ class _MainMenuState extends State<MainMenu> {
             ),
           ),
         ).then((result) {
-          // Check for rage quit (anti-cheat) when returning from streak quiz
-          StorageService.checkForRageQuit();
           // Refresh data when returning from streak quiz (always refresh)
           _loadStreakData();
         });
       }
     } catch (e) {
       // If navigation fails, refund the life
-      print("Navigation to streak quiz failed, refunding life: $e");
+      debugPrint("Navigation to streak quiz failed, refunding life: $e");
       await StorageService.refundLifeAtomically();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3856,6 +4244,7 @@ class _QuizPageState extends State<QuizPage> {
       allQuestions.add({
         'question': preguntas[i]['texto'],
         'explanation': preguntas[i]['explicacion'] ?? '',
+        'imagenes': preguntas[i]['imagenes'],
         'userAnswer': userAnswerIndex != null ? resps[userAnswerIndex]['texto'] : 'Sin respuesta',
         'correctAnswer': correctIndex >= 0 ? resps[correctIndex]['texto'] : '',
         'isCorrect': userAnswerIndex != null && resps[userAnswerIndex]['puntos'] == 1,
@@ -3928,8 +4317,13 @@ class _QuizPageState extends State<QuizPage> {
 
   // Menú horizontal superior deslizable de números
   Widget _buildMenuDesplazableNumeros() {
-    return Container(
-      height: 65,
+    return Align(
+      alignment: Alignment.center,
+      heightFactor: 1.0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Container(
+          height: 65,
       color: Colors.transparent,
       child: ListView.builder(
         controller: _menuScrollController,
@@ -3947,7 +4341,7 @@ class _QuizPageState extends State<QuizPage> {
             esCorrecta = resps[respuestasUsuario[index]!]['puntos'] == 1;
           }
 
-          Color colorFondo = Colors.indigo.shade700.withOpacity(0.4);
+          Color colorFondo = Colors.indigo.shade700.withValues(alpha: 0.4);
           Color colorTexto = Colors.white60;
 
           if (esActual) {
@@ -3987,7 +4381,9 @@ class _QuizPageState extends State<QuizPage> {
           );
         },
       ),
-    );
+    ),
+  ),
+);
   }
   bool _scrollBloqueado = false;  
   // Renderiza el contenido específico de cada pregunta dentro del PageView
@@ -4006,9 +4402,13 @@ class _QuizPageState extends State<QuizPage> {
           ? const NeverScrollableScrollPhysics() 
           : const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 20.0, bottom: 90.0),
-      child: Column(
-        children: [
-          LinearProgressIndicator(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            children: [
+              LinearProgressIndicator(
             value: (index + 1) / preguntas.length,
             backgroundColor: Colors.grey.shade200,
             color: Colors.orange,
@@ -4114,7 +4514,7 @@ class _QuizPageState extends State<QuizPage> {
                   border: Border.all(color: colorBorde, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -4189,8 +4589,9 @@ class _QuizPageState extends State<QuizPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    pregunta['explicacion'],
+                  MathMarkdownText(
+                    text: pregunta['explicacion'],
+                    isDarkMode: esModoOscuro,
                     style: TextStyle(
                       color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                       fontSize: 14,
@@ -4198,66 +4599,82 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // AI Tutor Button
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // Get correct answer
-                      final resps = pregunta['respuestas'] as List;
-                      int correctIndex = -1;
-                      for (int j = 0; j < resps.length; j++) {
-                        if (resps[j]['puntos'] == 1) {
-                          correctIndex = j;
-                          break;
+                  // AI Tutor Button (only show if explanation exists)
+                  if (pregunta['explicacion'] != null &&
+                      pregunta['explicacion'].toString().trim().isNotEmpty)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Get correct answer
+                        final resps = pregunta['respuestas'] as List;
+                        int correctIndex = -1;
+                        for (int j = 0; j < resps.length; j++) {
+                          if (resps[j]['puntos'] == 1) {
+                            correctIndex = j;
+                            break;
+                          }
                         }
-                      }
-                      final correctAnswer = correctIndex >= 0 ? resps[correctIndex]['texto'] : '';
-                      
-                      AiTutorDialog.show(
-                        context,
-                        formQuestion: pregunta['texto'] as String,
-                        correctAnswer: correctAnswer as String,
-                        theoreticalExplanation: pregunta['explicacion'] as String,
-                      );
-                    },
-                    icon: Icon(Icons.psychology_outlined, size: 18),
-                    label: Text('Preguntar al Tutor IA'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        final correctAnswer = correctIndex >= 0 ? resps[correctIndex]['texto'] : '';
+
+                        AiTutorDialog.show(
+                          context,
+                          formQuestion: pregunta['texto'] as String,
+                          correctAnswer: correctAnswer as String,
+                          theoreticalExplanation: pregunta['explicacion'] as String,
+                        );
+                      },
+                      icon: Icon(Icons.psychology_outlined, size: 18),
+                      label: Text('¿Alguna duda? Consulta aquí'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   // Barra de navegación inferior con botones atractivos
   Widget _buildBarraNavegacionAtractiva() {
+    bool esModoOscuro = Theme.of(context).brightness == Brightness.dark;
     bool esPrimeraPregunta = preguntaActual == 0;
     bool esUltimaPregunta = preguntaActual == preguntas.length - 1;
     
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: esModoOscuro ? const Color(0xFF1E293B) : Colors.white,
+        border: esModoOscuro
+            ? Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1))
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: esModoOscuro ? 0.3 : 0.08),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+      child: SafeArea(
+        top: false,
+        child: Align(
+          alignment: Alignment.center,
+          heightFactor: 1.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
           // Botón anterior
           Container(
             decoration: BoxDecoration(
@@ -4266,7 +4683,7 @@ class _QuizPageState extends State<QuizPage> {
                 BoxShadow(
                   color: esPrimeraPregunta 
                       ? Colors.transparent 
-                      : Colors.indigo.withOpacity(0.3),
+                      : Colors.indigo.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -4280,11 +4697,11 @@ class _QuizPageState extends State<QuizPage> {
               label: const Text("Anterior"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: esPrimeraPregunta 
-                    ? Colors.grey.shade300 
+                    ? (esModoOscuro ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade300) 
                     : Colors.indigo,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade500,
+                disabledBackgroundColor: esModoOscuro ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade300,
+                disabledForegroundColor: esModoOscuro ? Colors.white38 : Colors.grey.shade500,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -4300,7 +4717,7 @@ class _QuizPageState extends State<QuizPage> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withOpacity(0.3),
+                    color: Colors.green.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -4327,7 +4744,7 @@ class _QuizPageState extends State<QuizPage> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.indigo.withOpacity(0.3),
+                    color: Colors.indigo.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -4347,9 +4764,13 @@ class _QuizPageState extends State<QuizPage> {
                 ),
               ),
             ),
-        ],
+              ],
+            ),
+          ),
+        ),
       ),
-    );
+    ),
+  );
   }
 
   Widget buildSolucionario() {
@@ -4363,8 +4784,12 @@ class _QuizPageState extends State<QuizPage> {
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            children: [
           const SizedBox(height: 10),
           Icon(Icons.analytics, size: 80, color: colorDinamico),
           Text(
@@ -4462,7 +4887,7 @@ class _QuizPageState extends State<QuizPage> {
                     // Dark mode colors
                     final Color answeredCorrectColor = esModoOscuro ? Colors.green.shade800 : Colors.green.shade50;
                     final Color answeredIncorrectColor = esModoOscuro ? Colors.red.shade800 : Colors.red.shade50;
-                    final Color unansweredColor = esModoOscuro ? AppColors.darkCard.withOpacity(0.5) : Colors.grey.shade100;
+                    final Color unansweredColor = esModoOscuro ? AppColors.darkCard.withValues(alpha: 0.5) : Colors.grey.shade100;
                     final Color answeredCorrectBorder = esModoOscuro ? Colors.green.shade600 : Colors.green.shade300;
                     final Color answeredIncorrectBorder = esModoOscuro ? Colors.red.shade600 : Colors.red.shade300;
                     final Color unansweredBorder = esModoOscuro ? Colors.grey.shade600 : Colors.grey.shade300;
@@ -4594,6 +5019,20 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                             ),
                           ],
+                          if (pregunta.containsKey('imagenes') && pregunta['imagenes'] != null) ...[
+                            const SizedBox(height: 8),
+                            Column(
+                              children: List<String>.from(pregunta['imagenes'] as List).map((ruta) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: ZoomableImage(
+                                    imagePath: ruta,
+                                    onZoomChanged: (_) {},
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                           if (pregunta.containsKey('explicacion') && pregunta['explicacion'] != null && pregunta['explicacion'].toString().isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -4642,7 +5081,9 @@ class _QuizPageState extends State<QuizPage> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -4696,7 +5137,27 @@ class _ZoomableImageState extends State<ZoomableImage> {
             scaleEnabled: _zoomHabilitado,
             minScale: 1.0,
             maxScale: 3.0,
-            child: Image.asset(widget.imagePath, fit: BoxFit.contain),
+            child: Image.asset(
+                widget.imagePath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  padding: const EdgeInsets.all(12),
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.broken_image, color: Colors.amber, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Imagen no disponible (${widget.imagePath})',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ),
         ),
         
@@ -4714,7 +5175,7 @@ class _ZoomableImageState extends State<ZoomableImage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: _zoomHabilitado ? Colors.red.withOpacity(0.8) : Colors.black.withOpacity(0.6),
+                color: _zoomHabilitado ? Colors.red.withValues(alpha: 0.8) : Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -4814,13 +5275,16 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "¿Qué tipo de mensaje es?",
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 650),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "¿Qué tipo de mensaje es?",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
@@ -4917,7 +5381,9 @@ class _PantallaSugerenciasState extends State<PantallaSugerencias> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -4963,14 +5429,17 @@ class PantallaOnboardingStreak extends StatelessWidget {
     return Scaffold(
       backgroundColor: esModoOscuro ? const Color(0xFF0F172A) : const Color(0xFF1E3A5F),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: verticalPadding,
-          ),
-          child: Column(
-            children: [
-              FireAnimation(size: fireSize),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
+              ),
+              child: Column(
+                children: [
+                  FireAnimation(size: fireSize),
               SizedBox(height: largeSpacing),
               Text(
                 "Modo Streak",
@@ -5078,7 +5547,7 @@ class PantallaOnboardingStreak extends StatelessWidget {
                       }
                     } catch (e) {
                       // If navigation fails, refund the life
-                      print("Navigation from onboarding failed, refunding life: $e");
+                      debugPrint("Navigation from onboarding failed, refunding life: $e");
                       await StorageService.refundLifeAtomically();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -5113,7 +5582,9 @@ class PantallaOnboardingStreak extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildFeatureCard({
@@ -5128,9 +5599,9 @@ class PantallaOnboardingStreak extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(iconSize < 28 ? 12.0 : 16.0),
       decoration: BoxDecoration(
-        color: esModoOscuro ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.9),
+        color: esModoOscuro ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: esModoOscuro ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.3)),
+        border: Border.all(color: esModoOscuro ? Colors.white.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -5218,7 +5689,7 @@ class _FireAnimationState extends State<FireAnimation> with SingleTickerProvider
               size: widget.size,
               shadows: [
                 Shadow(
-                  color: Colors.orange.withOpacity(0.5),
+                  color: Colors.orange.withValues(alpha: 0.5),
                   blurRadius: 15,
                 ),
               ],
@@ -5417,6 +5888,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
           incorrect.add({
             'question': preguntas[i]['texto'],
             'explanation': preguntas[i]['explicacion'] ?? '',
+            'imagenes': preguntas[i]['imagenes'],
             'userAnswer': resps[respuestasUsuario[i]!]['texto'],
             'correctAnswer': resps.firstWhere((r) => r['puntos'] == 1)['texto'],
           });
@@ -5461,6 +5933,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
       allQuestions.add({
         'question': preguntas[i]['texto'],
         'explanation': preguntas[i]['explicacion'] ?? '',
+        'imagenes': preguntas[i]['imagenes'],
         'userAnswer': userAnswerIndex != null ? resps[userAnswerIndex]['texto'] : 'Sin respuesta',
         'correctAnswer': correctIndex >= 0 ? resps[correctIndex]['texto'] : '',
         'isCorrect': userAnswerIndex != null && resps[userAnswerIndex]['puntos'] == 1,
@@ -5500,7 +5973,7 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
             margin: const EdgeInsets.all(8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _getColorTiempo().withOpacity(0.2),
+              color: _getColorTiempo().withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: _getColorTiempo(), width: 2),
             ),
@@ -5535,26 +6008,30 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        Card(
-                          elevation: 10,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Text(
-                              _formatearTextoPregunta(preguntas[preguntaActual]['texto']),
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: Column(
+                          children: [
+                            Card(
+                              elevation: 10,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Text(
+                                  _formatearTextoPregunta(preguntas[preguntaActual]['texto']),
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
                         const SizedBox(height: 20),
-                        if (preguntas[preguntaActual].containsKey('imagenes'))
+                        if (preguntas[preguntaActual].containsKey('imagenes') && preguntas[preguntaActual]['imagenes'] != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 20),
                             child: Column(
-                              children: (preguntas[preguntaActual]['imagenes'] as List<String>).map((ruta) {
+                              children: List<String>.from(preguntas[preguntaActual]['imagenes'] as List).map((ruta) {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 15.0),
                                   child: ZoomableImage(
@@ -5647,13 +6124,22 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
+          ],
+        ),
       bottomNavigationBar: _tiempoAgotado 
           ? null 
-          : Container(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton(
+          : SafeArea(
+              top: false,
+              child: Align(
+                alignment: Alignment.center,
+                heightFactor: 1.0,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: ElevatedButton(
                 onPressed: respondido ? _siguientePregunta : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: respondido ? Colors.red : Colors.grey,
@@ -5669,6 +6155,9 @@ class _StreakQuizPageState extends State<StreakQuizPage> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -5727,9 +6216,11 @@ class StreakResultPage extends StatelessWidget {
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 650),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
               Icon(
                 passed ? Icons.emoji_events : Icons.heart_broken,
                 color: colorDinamico,
@@ -5762,7 +6253,7 @@ class StreakResultPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: Colors.orange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.orange),
                   ),
@@ -5789,9 +6280,9 @@ class StreakResultPage extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5804,6 +6295,21 @@ class StreakResultPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
+                          if (answer['imagenes'] != null && (answer['imagenes'] as List).isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: Column(
+                                children: List<String>.from(answer['imagenes'] as List).map((ruta) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: ZoomableImage(
+                                      imagePath: ruta,
+                                      onZoomChanged: (_) {},
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           if (answer['explanation'] != null && answer['explanation'].toString().isNotEmpty)
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5811,7 +6317,7 @@ class StreakResultPage extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
+                                    color: Colors.blue.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -5832,29 +6338,31 @@ class StreakResultPage extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // AI Tutor Button for streak mode
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    AiTutorDialog.show(
-                                      context,
-                                      formQuestion: answer['question'] as String,
-                                      correctAnswer: answer['correctAnswer'] as String,
-                                      theoreticalExplanation: answer['explanation'] as String,
-                                    );
-                                  },
-                                  icon: Icon(Icons.psychology_outlined, size: 14),
-                                  label: Text('Preguntar al Tutor IA'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade700,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
+                                // AI Tutor Button for streak mode (only show if explanation exists)
+                                if (answer['explanation'] != null &&
+                                    answer['explanation'].toString().trim().isNotEmpty)
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      AiTutorDialog.show(
+                                        context,
+                                        formQuestion: answer['question'] as String,
+                                        correctAnswer: answer['correctAnswer'] as String,
+                                        theoreticalExplanation: answer['explanation'] as String,
+                                      );
+                                    },
+                                    icon: Icon(Icons.psychology_outlined, size: 14),
+                                    label: Text('¿Alguna duda? Pregunta aqui'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue.shade700,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                ),
                               ],
                             ),
                           const SizedBox(height: 6),
@@ -5911,7 +6419,8 @@ class StreakResultPage extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -5969,16 +6478,19 @@ class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (_subjectStats.isNotEmpty)
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: Column(
+                  children: [
+                    if (_subjectStats.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: esModoOscuro ? Colors.red.withOpacity(0.2) : Colors.red.withOpacity(0.1),
+                      color: esModoOscuro ? Colors.red.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6143,7 +6655,9 @@ class _PantallaHistorialExamenesState extends State<PantallaHistorialExamenes> {
                   ),
                 ],
               ),
-          );
+            ),
+          ),
+        );
   }
 }
 
@@ -6164,9 +6678,12 @@ class ExamDetailScreen extends StatelessWidget {
         backgroundColor: esModoOscuro ? AppColors.darkAppBar : Colors.indigo,
         foregroundColor: Colors.white,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: exam.allQuestions.length,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: exam.allQuestions.length,
         itemBuilder: (context, index) {
           final questionData = exam.allQuestions[index];
           return Card(
@@ -6195,6 +6712,21 @@ class ExamDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (questionData['imagenes'] != null && (questionData['imagenes'] as List).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Column(
+                        children: List<String>.from(questionData['imagenes'] as List).map((ruta) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: ZoomableImage(
+                              imagePath: ruta,
+                              onZoomChanged: (_) {},
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   if (questionData['explanation'] != null && questionData['explanation'].toString().isNotEmpty)
                     Container(
@@ -6222,37 +6754,41 @@ class ExamDetailScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            questionData['explanation'],
+                          MathMarkdownText(
+                            text: questionData['explanation'],
+                            isDarkMode: esModoOscuro,
                             style: TextStyle(
                               fontSize: 13,
                               color: esModoOscuro ? AppColors.darkTextSecondary : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // AI Tutor Button for results review
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              AiTutorDialog.show(
-                                context,
-                                formQuestion: questionData['question'] as String,
-                                correctAnswer: questionData['correctAnswer'] as String,
-                                theoreticalExplanation: questionData['explanation'] as String,
-                              );
-                            },
-                            icon: Icon(Icons.psychology_outlined, size: 14),
-                            label: Text('Preguntar al Tutor IA'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
+                          // AI Tutor Button for results review (only show on incorrectly answered questions)
+                          if (!questionData['isCorrect'] &&
+                              questionData['explanation'] != null &&
+                              questionData['explanation'].toString().trim().isNotEmpty)
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                AiTutorDialog.show(
+                                  context,
+                                  formQuestion: questionData['question'] as String,
+                                  correctAnswer: questionData['correctAnswer'] as String,
+                                  theoreticalExplanation: questionData['explanation'] as String,
+                                );
+                              },
+                              icon: Icon(Icons.psychology_outlined, size: 14),
+                              label: Text('Envia tu pregunta aqui'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: esModoOscuro ? Colors.blue.shade600 : Colors.blue.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -6284,7 +6820,9 @@ class ExamDetailScreen extends StatelessWidget {
           );
         },
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildAnswerRow(String label, String answer, Color color, bool esModoOscuro) {
@@ -6330,20 +6868,23 @@ class PantallaAcercaDe extends StatelessWidget {
         backgroundColor: esModoOscuro ? AppColors.darkAppBar : Colors.indigo,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Center(
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.flight,
-                    size: 80,
-                    color: Colors.indigo,
-                  ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Center(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.flight,
+                        size: 80,
+                        color: Colors.indigo,
+                      ),
                   const SizedBox(height: 16),
                   Text(
                     ' EOV  -  Quiz App',
@@ -6381,10 +6922,10 @@ class PantallaAcercaDe extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: esModoOscuro ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05),
+                color: esModoOscuro ? Colors.blue.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: esModoOscuro ? Colors.blue.withOpacity(0.3) : Colors.blue.withOpacity(0.2),
+                  color: esModoOscuro ? Colors.blue.withValues(alpha: 0.3) : Colors.blue.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
@@ -6551,7 +7092,9 @@ class PantallaAcercaDe extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildSection(bool esModoOscuro, String title, String description) {

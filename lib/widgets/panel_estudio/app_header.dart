@@ -24,8 +24,8 @@ class PanelEstudioHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double streakBadgeSize = screenWidth >= 600
-        ? 92.0
-        : (screenWidth <= 340 ? 72.0 : 79.0);
+        ? 75.0
+        : (screenWidth <= 340 ? 60.0 : 65.0);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -59,7 +59,7 @@ class PanelEstudioHeader extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: textColor,
                     decoration: TextDecoration.underline,
-                    decorationColor: textColor.withOpacity(0.5),
+                    decorationColor: textColor.withValues(alpha: 0.5),
                   ),
                 ),
                 Text(
