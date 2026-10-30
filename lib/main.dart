@@ -349,6 +349,9 @@ class StorageService {
   static bool _isSyncing = false;
   static const int maxDailyAiMessages = 3;
 
+  /// Returns today's date formatted as YYYY-MM-DD in Chilean timezone.
+  static String getChileanTodayString() => _getChileanDate().toIso8601String().split('T').first;
+
   /// Returns the number of remaining AI tutor messages available for today (0 to 3).
   static Future<int> getRemainingDailyAiMessages(String userName) async {
     try {
@@ -367,7 +370,11 @@ class StorageService {
 
       // Check Firestore for cross-device consistency
       try {
-        final doc = await FirebaseFirestore.instance.collection('user_summaries').doc(userName).get();
+        final doc = await FirebaseFirestore.instance
+            .collection('user_summaries')
+            .doc(userName)
+            .get()
+            .timeout(const Duration(seconds: 3));
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
           if (data.containsKey('aiDailyUsage')) {
@@ -429,7 +436,7 @@ class StorageService {
             'count': newCount,
             'lastUpdated': FieldValue.serverTimestamp(),
           }
-        }, SetOptions(merge: true));
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
       } catch (e) {
         debugPrint("Error syncing AI daily count to Firestore: $e");
       }
@@ -438,6 +445,36 @@ class StorageService {
     } catch (e) {
       debugPrint("Error in incrementDailyAiMessages: $e");
       return 0;
+    }
+  }
+
+  /// Resets today's AI message counter to 0 (all messages available).
+  /// Specifically designed for testers to test without quota limits.
+  static Future<int> resetDailyAiMessages(String userName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = _getChileanDate().toIso8601String().split('T').first;
+      final localKey = 'ai_daily_usage_$userName';
+
+      await prefs.setString(localKey, json.encode({'date': todayStr, 'count': 0}));
+
+      try {
+        final docRef = FirebaseFirestore.instance.collection('user_summaries').doc(userName);
+        await docRef.set({
+          'aiDailyUsage': {
+            'date': todayStr,
+            'count': 0,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint("Note: Resetting AI daily count in Firestore fallback to local: $e");
+      }
+
+      return maxDailyAiMessages;
+    } catch (e) {
+      debugPrint("Error in resetDailyAiMessages: $e");
+      return maxDailyAiMessages;
     }
   }
 

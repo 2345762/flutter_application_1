@@ -105,17 +105,41 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
   int _remainingMessages = 3;
   String _effectiveUserName = '';
 
+  static const Set<String> _testerEmails = {
+    'tomas.galarce@precadet.cl',
+    'matyas.g.j@gmail.com',
+    'benjamin.zambrano@precadet.cl',
+  };
+
+  bool get _isTester => _testerEmails.contains(_effectiveUserName.trim().toLowerCase());
+
   @override
   void initState() {
     super.initState();
+    _effectiveUserName = widget.userName ?? '';
     _questionController.addListener(_onTextChanged);
     _initUserAndLimits();
     _randomizeSuggestions();
   }
 
+  @override
+  void didUpdateWidget(covariant GeneralAiTutorDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.userName != oldWidget.userName) {
+      _effectiveUserName = widget.userName ?? '';
+      _initUserAndLimits();
+    }
+  }
+
   void _randomizeSuggestions() {
-    final list = List<String>.from(_suggestionsPool)..shuffle();
-    _suggestions = list.take(4).toList();
+    final available = _suggestionsPool.where((q) => !_suggestions.contains(q)).toList();
+    if (available.length >= 4) {
+      available.shuffle();
+      _suggestions = available.take(4).toList();
+    } else {
+      final list = List<String>.from(_suggestionsPool)..shuffle();
+      _suggestions = list.take(4).toList();
+    }
   }
 
   void _onTextChanged() {
@@ -135,6 +159,7 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
     final remaining = await StorageService.getRemainingDailyAiMessages(user);
     if (mounted) {
       setState(() {
+        _effectiveUserName = user;
         _remainingMessages = remaining;
       });
     }
@@ -193,6 +218,15 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
             style: TextStyle(fontSize: 13.5, height: 1.45),
           ),
           actions: [
+            if (_isTester)
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _resetDailyQuota();
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reiniciar límite (Tester)', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Entendido', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -201,6 +235,23 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
         );
       },
     );
+  }
+
+  Future<void> _resetDailyQuota() async {
+    final updated = await StorageService.resetDailyAiMessages(_effectiveUserName);
+    if (mounted) {
+      setState(() {
+        _remainingMessages = updated;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('⚡ Límite de consultas de IA reiniciado a 3/3 (Modo Tester).'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.blue.shade800,
+        ),
+      );
+    }
   }
 
   Future<void> _submitQuestion([String? presetQuestion]) async {
@@ -326,11 +377,11 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
           left: 12,
           right: 12,
         ),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
+        child: Material(
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle bar
@@ -377,41 +428,58 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
                     ],
                   ),
                 ),
-                // Daily quota counter badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isLimitReached
-                        ? (isDarkMode ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50)
-                        : (isDarkMode ? Colors.blue.withValues(alpha: 0.2) : Colors.blue.shade50),
+                // Daily quota counter badge (tap-to-reset for testers)
+                Tooltip(
+                  message: _isTester ? 'Toca para reiniciar límite (Tester)' : 'Consultas disponibles hoy',
+                  child: InkWell(
+                    onTap: _isTester ? _resetDailyQuota : null,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isLimitReached
-                          ? (isDarkMode ? Colors.red.shade400 : Colors.red.shade300)
-                          : (isDarkMode ? Colors.blue.shade400 : Colors.blue.shade300),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isLimitReached ? Icons.block : Icons.bolt,
-                        size: 13,
-                        color: isLimitReached ? Colors.red : Colors.blue,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_remainingMessages/3 hoy',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isLimitReached
+                            ? (isDarkMode ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50)
+                            : (isDarkMode ? Colors.blue.withValues(alpha: 0.2) : Colors.blue.shade50),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: isLimitReached
-                              ? (isDarkMode ? Colors.red.shade300 : Colors.red.shade700)
-                              : (isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700),
+                              ? (isDarkMode ? Colors.red.shade400 : Colors.red.shade300)
+                              : (isDarkMode ? Colors.blue.shade400 : Colors.blue.shade300),
+                          width: 1,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isLimitReached ? Icons.block : Icons.bolt,
+                            size: 13,
+                            color: isLimitReached ? Colors.red : Colors.blue,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_remainingMessages/3 hoy',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isLimitReached
+                                  ? (isDarkMode ? Colors.red.shade300 : Colors.red.shade700)
+                                  : (isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700),
+                            ),
+                          ),
+                          if (_isTester) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.refresh_rounded,
+                              size: 13,
+                              color: isLimitReached
+                                  ? (isDarkMode ? Colors.red.shade300 : Colors.red.shade700)
+                                  : (isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 if (_messages.isNotEmpty)
@@ -498,6 +566,48 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
               ),
             ),
 
+          if (isLimitReached && _isTester)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.amber.withValues(alpha: 0.15)
+                    : Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDarkMode
+                      ? Colors.amber.shade600.withValues(alpha: 0.5)
+                      : Colors.amber.shade300,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Modo Tester: límite diario alcanzado',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _resetDailyQuota,
+                    icon: const Icon(Icons.refresh_rounded, size: 15),
+                    label: const Text(
+                      'Reiniciar preguntas',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: isDarkMode ? Colors.amber.shade300 : Colors.amber.shade900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Input field and send button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
@@ -563,7 +673,8 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
         ],
       ),
     ),
-  );
+  ),
+);
   }
 
   Widget _buildEmptyState(bool isDarkMode, bool isKeyboardVisible) {
@@ -643,45 +754,63 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Preguntas sugeridas:',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDarkMode ? Colors.blue.shade200 : Colors.blue.shade800,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.shuffle_rounded, size: 16),
-                          tooltip: 'Cambiar preguntas',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () {
-                            setState(() {
-                              _randomizeSuggestions();
-                            });
-                          },
-                        ),
-                      ],
+                    Text(
+                      'Preguntas sugeridas:',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: isDarkMode ? Colors.blue.shade200 : Colors.blue.shade800,
+                      ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: _suggestions.map((s) {
-                        return ActionChip(
-                          label: Text(
-                            s,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          onPressed: _isLoading ? null : () => _submitQuestion(s),
-                        );
-                      }).toList(),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                      child: Wrap(
+                        key: ValueKey(_suggestions.join(',')),
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: _suggestions.map((s) {
+                          return ActionChip(
+                            label: Text(
+                              s,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            onPressed: _isLoading ? null : () => _submitQuestion(s),
+                          );
+                        }).toList(),
+                      ),
                     ),
+                    if (_isTester) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _randomizeSuggestions();
+                          });
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text(
+                          'Recargar otras preguntas',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+                          side: BorderSide(
+                            color: isDarkMode
+                                ? Colors.blue.shade400.withValues(alpha: 0.35)
+                                : Colors.blue.shade300,
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
         ),

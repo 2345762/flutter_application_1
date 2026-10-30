@@ -137,6 +137,12 @@ void main() {
       final remaining = await StorageService.getRemainingDailyAiMessages(testUser);
       expect(remaining, lessThanOrEqualTo(3));
 
+      // 4.3.1 RESET: Reiniciar contador de IA para testers
+      final resetRemaining = await StorageService.resetDailyAiMessages(testUser);
+      expect(resetRemaining, equals(3));
+      final verifiedRemaining = await StorageService.getRemainingDailyAiMessages(testUser);
+      expect(verifiedRemaining, equals(3));
+
       // 4.4 DELETE: Limpiar sesión (Logout)
       await prefs.remove('userName');
       await prefs.setBool('isLoggedIn', false);
