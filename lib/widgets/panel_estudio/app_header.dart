@@ -59,7 +59,7 @@ class PanelEstudioHeader extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: textColor,
                     decoration: TextDecoration.underline,
-                    decorationColor: textColor.withOpacity(0.5),
+                    decorationColor: textColor.withValues(alpha: 0.5),
                   ),
                 ),
                 Text(

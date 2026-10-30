@@ -81,9 +81,10 @@ class SubjectCard extends StatelessWidget {
                   child: Center(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        bool esEscritorio = constraints.maxWidth > 600;
+                        bool esEscritorio = MediaQuery.of(context).size.width >= 600;
                         double escala = esEscritorio ? 0.78 : 0.88;
                         return Transform.scale(
+                          key: const Key('subject_card_image_scale'),
                           scale: escala,
                           child: Image.asset(
                             imagenAsset,

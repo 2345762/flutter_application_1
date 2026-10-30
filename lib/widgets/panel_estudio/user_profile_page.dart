@@ -56,7 +56,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         setState(() => _loading = false);
       }
     } catch (e) {
-      print("Error loading user data: $e");
+      debugPrint("Error loading user data: $e");
       setState(() => _loading = false);
     }
   }
@@ -80,7 +80,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         _streakDays = streakDays;
       });
     } catch (e) {
-      print("Error loading streak days: $e");
+      debugPrint("Error loading streak days: $e");
     }
   }
 
@@ -140,9 +140,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // User Info Card
                   _buildUserInfoCard(textColor, secondaryTextColor, surfaceColor),
                   const SizedBox(height: 20),
@@ -158,6 +161,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   // Exam Statistics
                   _buildExamStatistics(textColor, secondaryTextColor, surfaceColor),
                 ],
+                  ),
+                ),
               ),
             ),
     );
@@ -307,9 +312,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
+        color: iconColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: iconColor.withOpacity(0.3)),
+        border: Border.all(color: iconColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -371,7 +376,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               },
               calendarStyle: CalendarStyle(
                 todayDecoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.3),
+                  color: Colors.blue.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
                 markerDecoration: BoxDecoration(
@@ -407,7 +412,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     return Positioned(
                       right: 1,
                       bottom: 1,
-                      child: Container(
+                      child: SizedBox(
                         width: 20,
                         height: 20,
                         child: Lottie.asset(
@@ -438,7 +443,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Container(
+                SizedBox(
                   width: 20,
                   height: 20,
                   child: Lottie.asset(
@@ -530,9 +535,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         "${entry.value} exámenes",

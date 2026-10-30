@@ -37,7 +37,7 @@ class AiTutorService {
     required String systemInstruction,
   }) async {
     Object? lastError;
-    StackTrace? lastStackTrace;
+
 
     for (int modelIndex = 0; modelIndex < _candidateModels.length; modelIndex++) {
       final modelName = _candidateModels[modelIndex];
@@ -73,16 +73,16 @@ class AiTutorService {
           resultText = text;
           modelSucceeded = true;
           break; // Exit retry loop
-        } on TimeoutException catch (e, st) {
+        } on TimeoutException catch (e) {
           lastError = e;
-          lastStackTrace = st;
+
           debugPrint('[AiTutorService] Timeout with $modelName (attempt $attempt): $e');
           if (attempt < _maxRetriesPerModel) {
             await Future.delayed(Duration(milliseconds: _retryDelaysMs[attempt]));
           }
-        } catch (e, st) {
+        } catch (e) {
           lastError = e;
-          lastStackTrace = st;
+
           final errorString = e.toString().toLowerCase();
           debugPrint('[AiTutorService] Error with model $modelName (attempt $attempt): $e');
 
@@ -112,7 +112,7 @@ class AiTutorService {
     }
 
     // If all candidate models in the chain failed, analyze last error
-    debugPrint('[AiTutorService] All models in chain failed. Last error: $lastError\n$lastStackTrace');
+    debugPrint('[AiTutorService] All models in chain failed. Last error: $lastError');
     final errStr = lastError.toString().toLowerCase();
 
     if (errStr.contains('quota') ||
@@ -228,6 +228,21 @@ Instrucción de respuesta: Proporciona una explicación detallada y exhaustiva e
       userPrompt: userPrompt,
       systemInstruction: systemInstruction,
     );
+  }
+
+  /// Validación superficial de conectividad (Smoke Test ping / echo).
+  /// Comprueba que el servicio se inicializa y puede emitir un prompt sin evaluar calidad de texto.
+  Future<bool> pingProbe() async {
+    try {
+      final res = await _callWithMultiModelFallback(
+        userPrompt: 'PING',
+        systemInstruction: 'Responde únicamente con la palabra PONG.',
+      );
+      return res.isNotEmpty;
+    } catch (e) {
+      debugPrint('[AiTutorService.pingProbe] Nota de conectividad: $e');
+      return false;
+    }
   }
 
   /// Ask the general tutor about any aeronautical subject.

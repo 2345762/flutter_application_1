@@ -42,6 +42,7 @@ class GeneralAiTutorDialog extends StatefulWidget {
 class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
   final TextEditingController _questionController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -83,6 +84,7 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
     _questionController.removeListener(_onTextChanged);
     _questionController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -245,19 +247,24 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 20;
     final isLimitReached = _remainingMessages <= 0;
     final isTextEmpty = _questionController.text.trim().isEmpty;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.85,
-        maxWidth: 650,
-      ),
-      margin: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 12,
-        right: 12,
-      ),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight * 0.85,
+          maxWidth: 650,
+        ),
+        margin: EdgeInsets.only(
+          bottom: keyboardHeight,
+          left: 12,
+          right: 12,
+        ),
       decoration: BoxDecoration(
         color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -361,7 +368,7 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
           // Chat messages or suggestion empty state
           Expanded(
             child: _messages.isEmpty
-                ? _buildEmptyState(isDarkMode)
+                ? _buildEmptyState(isDarkMode, isKeyboardVisible)
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -439,6 +446,7 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
                 Expanded(
                   child: TextField(
                     controller: _questionController,
+                    focusNode: _focusNode,
                     maxLines: 4,
                     minLines: 1,
                     maxLength: 1000,
@@ -493,10 +501,11 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
-  Widget _buildEmptyState(bool isDarkMode) {
+  Widget _buildEmptyState(bool isDarkMode, bool isKeyboardVisible) {
     final suggestions = [
       '¿Qué es la velocidad V1 y qué decisión se toma?',
       '¿Cómo afecta la altitud de densidad al despegue?',
@@ -504,50 +513,99 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
       '¿Qué condiciones favorecen la formación de engelamiento?',
     ];
 
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.school_outlined,
-            size: 40,
-            color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade600,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '¿En qué materia tienes dudas hoy?',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'El tutor combina conceptos de Aerodinámica, Performance, Operaciones, Peso & Balance, Meteorología y Reglamentación.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDarkMode ? Colors.white54 : Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: suggestions.map((s) {
-              return ActionChip(
-                label: Text(
-                  s,
-                  style: const TextStyle(fontSize: 11),
+    return Center(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                child: child,
+              ),
+            );
+          },
+          child: isKeyboardVisible
+              ? Column(
+                  key: const ValueKey('empty_state_keyboard_active'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.school_outlined,
+                      size: 28,
+                      color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade600,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '¿En qué materia tienes dudas hoy?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Escribe tu pregunta a continuación...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: isDarkMode ? Colors.white38 : Colors.black45,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  key: const ValueKey('empty_state_keyboard_hidden'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.school_outlined,
+                      size: 40,
+                      color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade600,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '¿En qué materia tienes dudas hoy?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'El tutor combina conceptos de Aerodinámica, Performance, Operaciones, Peso & Balance, Meteorología y Reglamentación.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDarkMode ? Colors.white54 : Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: suggestions.map((s) {
+                        return ActionChip(
+                          label: Text(
+                            s,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onPressed: _isLoading ? null : () => _submitQuestion(s),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                onPressed: _isLoading ? null : () => _submitQuestion(s),
-              );
-            }).toList(),
-          ),
-        ],
+        ),
       ),
     );
   }
