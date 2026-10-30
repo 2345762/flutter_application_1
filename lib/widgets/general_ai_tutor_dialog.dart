@@ -40,6 +40,61 @@ class GeneralAiTutorDialog extends StatefulWidget {
 }
 
 class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
+  static const List<String> _suggestionsPool = [
+    // 1. Aerodinámica (7)
+    '¿Qué es la velocidad V1 y qué decisión se toma?',
+    '¿Cómo se produce la entrada en pérdida (stall) y cómo recuperarla?',
+    '¿Qué es el factor de carga y cómo varía en virajes escarpados?',
+    '¿Cuál es la diferencia entre resistencia parásita e inducida?',
+    '¿Cómo influye el efecto suelo durante el despegue y aterrizaje?',
+    '¿Qué es el ángulo de ataque crítico y cómo se relaciona con el perfil alar?',
+    '¿Qué función cumplen los vórtices de punta de ala y los winglets?',
+
+    // 2. Meteorología (7)
+    '¿Qué condiciones favorecen la formación de engelamiento?',
+    '¿Cómo se interpreta un reporte METAR y qué significa CAVOK?',
+    '¿Qué peligros representan las microrráfagas y la cizalladura?',
+    '¿Qué diferencia hay entre niebla de radiación y de advección?',
+    '¿Cómo reconocer un frente frío frente a un frente cálido?',
+    '¿Qué es la altitud de presión y cómo se calibra el altímetro en QNH y QNE?',
+    '¿Cuáles son las etapas de desarrollo de una tormenta cumulonimbus?',
+
+    // 3. Performance y Motores (7)
+    '¿Cómo afecta la altitud de densidad al despegue?',
+    '¿Qué es el motor crítico en aeronaves bimotores y por qué?',
+    '¿Qué diferencia hay entre velocidad Vy y Vx?',
+    '¿Qué causas provocan detonación o preignición en el motor?',
+    '¿Cómo afecta el viento de cola a la carrera de despegue?',
+    '¿Qué es la velocidad Vmc (mínima de control en el aire) en multimotores?',
+    '¿Cómo influye la humedad y la temperatura en la potencia del motor?',
+
+    // 4. Peso y Balance (6)
+    '¿Qué es el centro de gravedad (CG) y qué pasa si está muy adelante?',
+    '¿Qué peligros existen si el CG excede el límite posterior?',
+    '¿Cómo se calcula el momento y la posición del Datum?',
+    '¿Qué diferencia hay entre Peso Vacío Básico y Peso Máximo de Despegue?',
+    '¿Qué es la Cuerda Media Aerodinámica (MAC) y cómo se calcula el %MAC?',
+    '¿Cómo varía el centro de gravedad con el consumo de combustible en vuelo?',
+
+    // 5. Operaciones de Vuelo (6)
+    '¿Cuáles son los criterios para planificar un aeródromo de alternativa?',
+    '¿Cuáles son los mínimos de combustible de reserva VFR e IFR?',
+    '¿Qué procedimiento seguir ante una falla de comunicaciones en vuelo?',
+    '¿Qué procedimiento se aplica ante una despresurización rápida en cabina?',
+    '¿Qué significan los códigos transponder 7500, 7600 y 7700?',
+    '¿Qué criterios definen una aproximación estabilizada antes de aterrizar?',
+
+    // 6. Reglamentación DGAC Chile (7)
+    '¿Cuáles son las limitaciones de velocidad bajo 10.000 pies según la DGAC?',
+    '¿Qué requisitos exige la norma DAN 91 para volar en espacio aéreo C y D?',
+    '¿Cuáles son los mínimos de visibilidad y techo para vuelo VFR en Chile?',
+    '¿Cuáles son las reglas de altitud mínima de seguridad sobre zonas pobladas?',
+    '¿Qué documentos obligatorios deben llevarse a bordo según la normativa chilena?',
+    '¿Cuáles son los límites de tiempo de vuelo y descanso para tripulaciones?',
+    '¿Qué vigencia tienen las licencias y habilitaciones aeronáuticas en Chile?',
+  ];
+
+  List<String> _suggestions = [];
   final TextEditingController _questionController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -55,6 +110,12 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
     super.initState();
     _questionController.addListener(_onTextChanged);
     _initUserAndLimits();
+    _randomizeSuggestions();
+  }
+
+  void _randomizeSuggestions() {
+    final list = List<String>.from(_suggestionsPool)..shuffle();
+    _suggestions = list.take(4).toList();
   }
 
   void _onTextChanged() {
@@ -506,13 +567,6 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
   }
 
   Widget _buildEmptyState(bool isDarkMode, bool isKeyboardVisible) {
-    final suggestions = [
-      '¿Qué es la velocidad V1 y qué decisión se toma?',
-      '¿Cómo afecta la altitud de densidad al despegue?',
-      '¿Qué es el centro de gravedad (CG) y qué pasa si está muy adelante?',
-      '¿Qué condiciones favorecen la formación de engelamiento?',
-    ];
-
     return Center(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -588,12 +642,37 @@ class _GeneralAiTutorDialogState extends State<GeneralAiTutorDialog> {
                         color: isDarkMode ? Colors.white54 : Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Preguntas sugeridas:',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDarkMode ? Colors.blue.shade200 : Colors.blue.shade800,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.shuffle_rounded, size: 16),
+                          tooltip: 'Cambiar preguntas',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            setState(() {
+                              _randomizeSuggestions();
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
-                      children: suggestions.map((s) {
+                      children: _suggestions.map((s) {
                         return ActionChip(
                           label: Text(
                             s,

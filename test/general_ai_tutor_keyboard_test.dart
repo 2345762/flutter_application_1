@@ -26,10 +26,8 @@ void main() {
     await tester.pumpWidget(buildTestWidget(keyboardHeight: 0));
     await tester.pumpAndSettle();
 
-    // Verify predetermined questions are visible
+    // Verify 4 randomized predetermined questions are visible
     expect(find.byType(ActionChip), findsNWidgets(4));
-    expect(find.text('¿Qué es la velocidad V1 y qué decisión se toma?'), findsOneWidget);
-    expect(find.text('¿Cómo afecta la altitud de densidad al despegue?'), findsOneWidget);
 
     // 2. Simulate mobile keyboard opening (keyboardHeight = 300)
     await tester.pumpWidget(buildTestWidget(keyboardHeight: 300));
@@ -45,6 +43,5 @@ void main() {
 
     // Verify predetermined questions reappear
     expect(find.byType(ActionChip), findsNWidgets(4));
-    expect(find.text('¿Qué es la velocidad V1 y qué decisión se toma?'), findsOneWidget);
   });
 }

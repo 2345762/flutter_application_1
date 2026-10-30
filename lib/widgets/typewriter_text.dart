@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'math_markdown_text.dart';
 
 class TypewriterText extends StatefulWidget {
   final String text;
   final TextStyle? style;
   final Duration speed;
   final VoidCallback? onComplete;
+  final bool? isDarkMode;
 
   const TypewriterText({
     super.key,
@@ -13,6 +15,7 @@ class TypewriterText extends StatefulWidget {
     this.style,
     this.speed = const Duration(milliseconds: 14),
     this.onComplete,
+    this.isDarkMode,
   });
 
   @override
@@ -79,15 +82,18 @@ class _TypewriterTextState extends State<TypewriterText> {
   @override
   Widget build(BuildContext context) {
     final displayedText = widget.text.substring(0, _characterCount);
-    final isTyping = _characterCount < widget.text.length;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _completeImmediately,
-      child: SelectableText(
-        displayedText + (isTyping ? ' ▍' : ''),
-        style: widget.style,
-        onTap: _completeImmediately,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+        child: MathMarkdownText(
+          text: displayedText,
+          style: widget.style,
+          isDarkMode: widget.isDarkMode,
+          selectable: false,
+        ),
       ),
     );
   }

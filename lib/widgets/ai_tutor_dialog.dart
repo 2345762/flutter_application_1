@@ -43,15 +43,22 @@ class AiTutorDialog extends StatefulWidget {
 
 class _AiTutorDialogState extends State<AiTutorDialog> {
   final TextEditingController _doubtController = TextEditingController();
+  final TextEditingController _followUpController = TextEditingController();
+
   String _response = '';
   bool _isLoading = false;
   String? _errorMessage;
   bool _isRetryable = true;
   bool _isTypingComplete = false;
 
+  // Follow-up conversation state
+  bool _showFollowUpInput = false;
+  final List<({String question, String answer, bool isNew})> _followUpList = [];
+
   @override
   void dispose() {
     _doubtController.dispose();
+    _followUpController.dispose();
     super.dispose();
   }
 
@@ -64,6 +71,8 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
       _isRetryable = true;
       _response = '';
       _isTypingComplete = false;
+      _showFollowUpInput = false;
+      _followUpList.clear();
     });
 
     try {
@@ -100,8 +109,67 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
     }
   }
 
+  Future<void> _submitFollowUp() async {
+    final followUpText = _followUpController.text.trim();
+    if (followUpText.isEmpty || _isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final history = <Map<String, String>>[];
+      if (_doubtController.text.trim().isNotEmpty) {
+        history.add({'role': 'user', 'text': _doubtController.text.trim()});
+      }
+      if (_response.isNotEmpty) {
+        history.add({'role': 'assistant', 'text': _response});
+      }
+      for (final item in _followUpList) {
+        history.add({'role': 'user', 'text': item.question});
+        history.add({'role': 'assistant', 'text': item.answer});
+      }
+
+      final newAnswer = await widget.aiTutorService.askTutor(
+        studentDoubt: followUpText,
+        formQuestion: widget.formQuestion,
+        correctAnswer: widget.correctAnswer,
+        theoreticalExplanation: widget.theoreticalExplanation,
+        conversationHistory: history,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _followUpList.add((question: followUpText, answer: newAnswer, isNew: true));
+        _followUpController.clear();
+        _showFollowUpInput = false;
+        _isLoading = false;
+      });
+    } on AiTutorException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.message;
+        _isRetryable = e.isRetryable;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Ocurrió un error inesperado al procesar tu solicitud.';
+        _isRetryable = true;
+        _isLoading = false;
+      });
+    }
+  }
+
   void _retry() {
-    _submitDoubt();
+    if (_showFollowUpInput && _followUpController.text.trim().isNotEmpty) {
+      _submitFollowUp();
+    } else {
+      _submitDoubt();
+    }
   }
 
   @override
@@ -180,10 +248,8 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                     ),
                     child: Text(
                       widget.formQuestion,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontStyle: FontStyle.italic,
                         color: isDarkMode ? Colors.white70 : Colors.black87,
                       ),
@@ -193,7 +259,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
               ),
             ),
 
-            // Question Input Section: Only displayed ONCE before the AI delivers its response
+            // Question Input Section: Displayed initially before the first response
             if (!hasAnswered) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -268,7 +334,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
               ),
             ],
 
-            // Response area or error
+            // Main Response area or error
             if (hasAnswered || _errorMessage != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -310,7 +376,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    if (_errorMessage != null)
+                    if (_errorMessage != null && !hasAnswered)
                       SelectableText(
                         _errorMessage!,
                         style: TextStyle(
@@ -322,6 +388,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                     else if (!_isTypingComplete)
                       TypewriterText(
                         text: _response,
+                        isDarkMode: isDarkMode,
                         onComplete: () {
                           if (mounted) setState(() => _isTypingComplete = true);
                         },
@@ -341,7 +408,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                           height: 1.5,
                         ),
                       ),
-                    if (_errorMessage != null && _isRetryable) ...[
+                    if (_errorMessage != null && _isRetryable && !hasAnswered) ...[
                       const SizedBox(height: 10),
                       TextButton.icon(
                         onPressed: _retry,
@@ -358,8 +425,221 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                 ),
               ),
 
-              if (hasAnswered) ...[
+              // Follow-up conversation turns list
+              for (int i = 0; i < _followUpList.length; i++) ...[
                 const SizedBox(height: 14),
+                // User follow-up bubble
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.blue.shade700 : Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        _followUpList[i].question,
+                        style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // AI follow-up response card
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2C2C2E) : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDarkMode ? Colors.blue.withValues(alpha: 0.3) : Colors.blue.shade200,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.school_outlined,
+                            color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Respuesta a tu consulta:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _followUpList[i].isNew
+                          ? TypewriterText(
+                              text: _followUpList[i].answer,
+                              isDarkMode: isDarkMode,
+                              onComplete: () {
+                                if (mounted) {
+                                  setState(() {
+                                    _followUpList[i] = (
+                                      question: _followUpList[i].question,
+                                      answer: _followUpList[i].answer,
+                                      isNew: false,
+                                    );
+                                  });
+                                }
+                              },
+                              style: TextStyle(
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                                fontSize: 13.5,
+                                height: 1.5,
+                              ),
+                            )
+                          : MathMarkdownText(
+                              text: _followUpList[i].answer,
+                              isDarkMode: isDarkMode,
+                              style: TextStyle(
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                                fontSize: 13.5,
+                                height: 1.5,
+                              ),
+                            ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Actions and Follow-up Section
+              if (hasAnswered) ...[
+                const SizedBox(height: 16),
+
+                // Button or Follow-up input card
+                if (!_showFollowUpInput) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showFollowUpInput = true;
+                        });
+                      },
+                      icon: const Icon(Icons.forum_outlined, size: 18),
+                      label: const Text('Si no te quedó claro, consulta aquí'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDarkMode ? Colors.blue.shade600 : Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDarkMode ? Colors.blue.withValues(alpha: 0.35) : Colors.blue.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            '¿Qué punto específico deseas revisar o profundizar?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _followUpController,
+                            maxLines: 3,
+                            maxLength: 500,
+                            enabled: !_isLoading,
+                            decoration: InputDecoration(
+                              hintText: 'Escribe aquí tu duda específica para continuar la conversación...',
+                              hintStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: isDarkMode ? Colors.white38 : Colors.grey.shade500,
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              counterText: '',
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red.shade400, fontSize: 12),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _showFollowUpInput = false;
+                                          _followUpController.clear();
+                                          _errorMessage = null;
+                                        });
+                                      },
+                                child: const Text('Cancelar'),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: (_isLoading || _followUpController.text.trim().isEmpty)
+                                    ? null
+                                    : _submitFollowUp,
+                                icon: _isLoading
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 15),
+                                label: const Text('Enviar duda'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isDarkMode ? Colors.blue.shade600 : Colors.blue.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 10),
+
+                // Button "Entendido, cerrar"
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: OutlinedButton(
@@ -372,6 +652,7 @@ class _AiTutorDialogState extends State<AiTutorDialog> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: const Text('Entendido, cerrar'),
                   ),

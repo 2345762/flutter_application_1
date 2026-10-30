@@ -202,6 +202,13 @@ class MathMarkdownText extends StatelessWidget {
 
   Widget _buildRichText(String rawText, TextStyle baseStyle, bool darkMode) {
     final spans = _parseInlineSpans(rawText, baseStyle, darkMode);
+    if (spans.length == 1 && spans.first is TextSpan) {
+      final span = spans.first as TextSpan;
+      return Text(
+        span.text ?? '',
+        style: span.style ?? baseStyle,
+      );
+    }
     return Text.rich(
       TextSpan(children: spans),
       style: baseStyle,
@@ -213,11 +220,11 @@ class MathMarkdownText extends StatelessWidget {
     // Regex matching:
     // 1. Display math inside paragraph: `$$...$$`
     // 2. Bracket display math: `\[...\]`
-    // 3. Inline math: `$...$` or `\(...\)`
+    // 3. Inline math: `$...$` or `\$...\$` or `\(...\)`
     // 4. Bold: `**...**`
     // 5. Italic: `*...*`
     final pattern = RegExp(
-      r'(\$\$(.+?)\$\$)|(\\\[(.+?)\\\])|((?<!\\)\$(?!\$)(.+?)(?<!\\)\$)|(\\\((.+?)\\\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)',
+      r'(\$\$(.+?)\$\$)|(\\\[(.+?)\\\])|((?:\\\$|\$)(?!\$)(.+?)(?:\\\$|\$))|(\\\((.+?)\\\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)',
       dotAll: true,
     );
 
@@ -230,7 +237,6 @@ class MathMarkdownText extends StatelessWidget {
           style: baseStyle,
         ));
       }
-
 
       if (match.group(1) != null) {
         // $$...$$ display math inline
@@ -267,7 +273,7 @@ class MathMarkdownText extends StatelessWidget {
           ),
         );
       } else if (match.group(5) != null) {
-        // $...$ inline math
+        // $...$ or \$...\$ inline math
         final mathContent = match.group(6)!.trim();
         spans.add(
           WidgetSpan(
@@ -301,19 +307,29 @@ class MathMarkdownText extends StatelessWidget {
           ),
         );
       } else if (match.group(9) != null) {
-        // **bold**
+        // **bold** - recursively process any math inside bold
         final boldContent = match.group(10)!;
-        spans.add(TextSpan(
-          text: boldContent,
-          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
-        ));
+        final boldStyle = baseStyle.copyWith(fontWeight: FontWeight.bold);
+        if (boldContent.contains(r'$') || boldContent.contains(r'\(')) {
+          spans.addAll(_parseInlineSpans(boldContent, boldStyle, darkMode));
+        } else {
+          spans.add(TextSpan(
+            text: boldContent,
+            style: boldStyle,
+          ));
+        }
       } else if (match.group(11) != null) {
-        // *italic*
+        // *italic* - recursively process any math inside italic
         final italicContent = match.group(12)!;
-        spans.add(TextSpan(
-          text: italicContent,
-          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
-        ));
+        final italicStyle = baseStyle.copyWith(fontStyle: FontStyle.italic);
+        if (italicContent.contains(r'$') || italicContent.contains(r'\(')) {
+          spans.addAll(_parseInlineSpans(italicContent, italicStyle, darkMode));
+        } else {
+          spans.add(TextSpan(
+            text: italicContent,
+            style: italicStyle,
+          ));
+        }
       }
 
       lastIndex = match.end;

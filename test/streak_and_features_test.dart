@@ -26,9 +26,7 @@ void main() {
 
       // Verify full text is displayed in SelectableText
       expect(
-        find.byWidgetPredicate(
-          (w) => w is SelectableText && (w.data ?? '').contains('Bienvenido al tutor IA'),
-        ),
+        find.textContaining('Bienvenido al tutor IA'),
         findsOneWidget,
       );
     });
@@ -54,9 +52,7 @@ void main() {
 
       // It should immediately complete
       expect(
-        find.byWidgetPredicate(
-          (w) => w is SelectableText && (w.data ?? '').contains('Texto largo para completar al toque'),
-        ),
+        find.textContaining('Texto largo para completar al toque'),
         findsOneWidget,
       );
     });
